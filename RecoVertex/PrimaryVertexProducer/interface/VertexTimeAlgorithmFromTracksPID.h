@@ -8,7 +8,7 @@
 #include "DataFormats/Common/interface/ValueMap.h"
 
 class VertexTimeAlgorithmFromTracksPID : public VertexTimeAlgorithmBase {
- public:
+public:
   VertexTimeAlgorithmFromTracksPID(const edm::ParameterSet& conf, edm::ConsumesCollector& iC);
   ~VertexTimeAlgorithmFromTracksPID() override = default;
 
