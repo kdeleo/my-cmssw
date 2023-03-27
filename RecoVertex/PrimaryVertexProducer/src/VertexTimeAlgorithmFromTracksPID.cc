@@ -7,39 +7,44 @@
 
 #include "RecoVertex/PrimaryVertexProducer/interface/VertexTimeAlgorithmFromTracksPID.h"
 
-
 #ifdef PVTX_DEBUG
 #define LOG edm::LogPrint("VertexTimeAlgorithmFromTracksPID")
 #else
 #define LOG LogDebug("VertexTimeAlgorithmFromTracksPID")
 #endif
 
-VertexTimeAlgorithmFromTracksPID::VertexTimeAlgorithmFromTracksPID(edm::ParameterSet const& iConfig, edm::ConsumesCollector& iCC) :
-  VertexTimeAlgorithmBase(iConfig, iCC),
-  trackMTDTimeToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDTimeVMapTag"))),
-  trackMTDTimeErrorToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDTimeErrorVMapTag"))),
-  trackMTDTimeQualityToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDTimeQualityVMapTag"))),
-  trackMTDMomentumToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDMomentumVMapTag"))),
-  trackMTDPathLengthToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDPathLengthVMapTag"))),
-  minTrackVtxWeight_(iConfig.getParameter<double>("minTrackVtxWeight")),
-  minTrackTimeQuality_(iConfig.getParameter<double>("minTrackTimeQuality")),
-  massPion_(iConfig.getParameter<double>("massPion")),
-  massKaon_(iConfig.getParameter<double>("massKaon")),
-  massProton_(iConfig.getParameter<double>("massProton")),
-  probPion_(iConfig.getParameter<double>("probPion")),
-  probKaon_(iConfig.getParameter<double>("probKaon")),
-  probProton_(iConfig.getParameter<double>("probProton")),
-  Tstart_(iConfig.getParameter<double>("Tstart")),
-  coolingFactor_(iConfig.getParameter<double>("coolingFactor")) {}
+VertexTimeAlgorithmFromTracksPID::VertexTimeAlgorithmFromTracksPID(edm::ParameterSet const& iConfig,
+                                                                   edm::ConsumesCollector& iCC)
+    : VertexTimeAlgorithmBase(iConfig, iCC),
+      trackMTDTimeToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDTimeVMapTag"))),
+      trackMTDTimeErrorToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDTimeErrorVMapTag"))),
+      trackMTDTimeQualityToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDTimeQualityVMapTag"))),
+      trackMTDMomentumToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDMomentumVMapTag"))),
+      trackMTDPathLengthToken_(iCC.consumes(iConfig.getParameter<edm::InputTag>("trackMTDPathLengthVMapTag"))),
+      minTrackVtxWeight_(iConfig.getParameter<double>("minTrackVtxWeight")),
+      minTrackTimeQuality_(iConfig.getParameter<double>("minTrackTimeQuality")),
+      massPion_(iConfig.getParameter<double>("massPion")),
+      massKaon_(iConfig.getParameter<double>("massKaon")),
+      massProton_(iConfig.getParameter<double>("massProton")),
+      probPion_(iConfig.getParameter<double>("probPion")),
+      probKaon_(iConfig.getParameter<double>("probKaon")),
+      probProton_(iConfig.getParameter<double>("probProton")),
+      Tstart_(iConfig.getParameter<double>("Tstart")),
+      coolingFactor_(iConfig.getParameter<double>("coolingFactor")) {}
 
 void VertexTimeAlgorithmFromTracksPID::fillPSetDescription(edm::ParameterSetDescription& iDesc) {
   VertexTimeAlgorithmBase::fillPSetDescription(iDesc);
 
-  iDesc.add<edm::InputTag>("trackMTDTimeVMapTag", edm::InputTag("trackExtenderWithMTD:generalTracktmtd"))->setComment("");
-  iDesc.add<edm::InputTag>("trackMTDTimeErrorVMapTag", edm::InputTag("trackExtenderWithMTD:generalTracksigmatmtd"))->setComment("");
-  iDesc.add<edm::InputTag>("trackMTDTimeQualityVMapTag", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"))->setComment("");
-  iDesc.add<edm::InputTag>("trackMTDMomentumVMapTag", edm::InputTag("trackExtenderWithMTD:generalTrackp"))->setComment("");
-  iDesc.add<edm::InputTag>("trackMTDPathLengthVMapTag", edm::InputTag("trackExtenderWithMTD:generalTrackPathLength"))->setComment("");
+  iDesc.add<edm::InputTag>("trackMTDTimeVMapTag", edm::InputTag("trackExtenderWithMTD:generalTracktmtd"))
+      ->setComment("");
+  iDesc.add<edm::InputTag>("trackMTDTimeErrorVMapTag", edm::InputTag("trackExtenderWithMTD:generalTracksigmatmtd"))
+      ->setComment("");
+  iDesc.add<edm::InputTag>("trackMTDTimeQualityVMapTag", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"))
+      ->setComment("");
+  iDesc.add<edm::InputTag>("trackMTDMomentumVMapTag", edm::InputTag("trackExtenderWithMTD:generalTrackp"))
+      ->setComment("");
+  iDesc.add<edm::InputTag>("trackMTDPathLengthVMapTag", edm::InputTag("trackExtenderWithMTD:generalTrackPathLength"))
+      ->setComment("");
 
   iDesc.add<double>("minTrackVtxWeight", 0.5)->setComment("");
   iDesc.add<double>("minTrackTimeQuality", 0.8)->setComment("");
@@ -65,15 +70,18 @@ void VertexTimeAlgorithmFromTracksPID::setEvent(edm::Event& iEvent, edm::EventSe
   trackMTDPathLengths_ = iEvent.get(trackMTDPathLengthToken_);
 }
 
-float VertexTimeAlgorithmFromTracksPID::trackTime(float const mass, float const mtdTime, float const mtdPathLength, float const mtdMomentum) const {
+float VertexTimeAlgorithmFromTracksPID::trackTime(float const mass,
+                                                  float const mtdTime,
+                                                  float const mtdPathLength,
+                                                  float const mtdMomentum) const {
   // speed of light, c = 29.9792458 cm/ns
-  return (mtdTime - mtdPathLength * std::sqrt(1.f + mass*mass/mtdMomentum/mtdMomentum) / 29.9792458f);
+  return (mtdTime - mtdPathLength * std::sqrt(1.f + mass * mass / mtdMomentum / mtdMomentum) / 29.9792458f);
 }
 
-
-
-bool VertexTimeAlgorithmFromTracksPID::vertexTime(float& vtxTime, float& vtxTimeError,  const TransientVertex& vtx) const {
-  if(vtx.originalTracks().size() == 0){
+bool VertexTimeAlgorithmFromTracksPID::vertexTime(float& vtxTime,
+                                                  float& vtxTimeError,
+                                                  const TransientVertex& vtx) const {
+  if (vtx.originalTracks().empty()) {
     return false;
   }
 
@@ -86,19 +94,16 @@ bool VertexTimeAlgorithmFromTracksPID::vertexTime(float& vtxTime, float& vtxTime
 
   double const a[3] = {probPion_, probKaon_, probProton_};
 
-
   std::vector<TrackInfo> v_trackInfo;
   v_trackInfo.reserve(vtx.originalTracks().size());
 
   // initial guess
-  for (const auto & trk : vtx.originalTracks()) {
+  for (const auto& trk : vtx.originalTracks()) {
     auto const trkWeight = vtx.trackWeight(trk);
     if (trkWeight > minTrackVtxWeight_) {
-
       auto const trkTimeQuality = trackMTDTimeQualities_[trk.trackBaseRef()];
 
       if (trkTimeQuality >= minTrackTimeQuality_) {
-
         auto const trkTime = trackMTDTimes_[trk.trackBaseRef()];
         auto const trkTimeError = trackMTDTimeErrors_[trk.trackBaseRef()];
         auto const trkPathLength = trackMTDPathLengths_[trk.trackBaseRef()];
@@ -111,7 +116,7 @@ bool VertexTimeAlgorithmFromTracksPID::vertexTime(float& vtxTime, float& vtxTime
         trkInfo.trkTime = trkTime;
         trkInfo.trkTimeError = trkTimeError;
 
-        if(trkPathLength > 0){
+        if (trkPathLength > 0) {
           trkInfo.trkTimeHyp[0] = trackTime(massPion_, trkTime, trkPathLength, trkMomentum);
           trkInfo.trkTimeHyp[1] = trackTime(massKaon_, trkTime, trkPathLength, trkMomentum);
           trkInfo.trkTimeHyp[2] = trackTime(massProton_, trkTime, trkPathLength, trkMomentum);
@@ -121,45 +126,45 @@ bool VertexTimeAlgorithmFromTracksPID::vertexTime(float& vtxTime, float& vtxTime
           trkInfo.trkTimeHyp[2] = 0.f;
         }
 
-        auto const wgt = trkWeight / (trkTimeError*trkTimeError);
+        auto const wgt = trkWeight / (trkTimeError * trkTimeError);
         wsum += wgt;
 
-        for(uint j = 0; j < 3; ++j) {
+        for (uint j = 0; j < 3; ++j) {
           tsum += wgt * trkInfo.trkTimeHyp[j] * a[j];
         }
-	LOG << "vertexTimeFromTracks:     track"
-		  << " pt=" << trk.track().pt() << " eta=" << trk.track().eta() << " phi=" << trk.track().phi()
+        LOG << "vertexTimeFromTracks:     track"
+            << " pt=" << trk.track().pt() << " eta=" << trk.track().eta() << " phi=" << trk.track().phi()
             << " vtxWeight=" << trkWeight << " time=" << trkTime << " timeError=" << trkTimeError
             << " timeQuality=" << trkTimeQuality << " pathLength=" << trkPathLength << " momentum=" << trkMomentum
             << " timeHyp[pion]=" << trkInfo.trkTimeHyp[0] << " timeHyp[kaon]=" << trkInfo.trkTimeHyp[1]
-	    << " timeHyp[proton]=" << trkInfo.trkTimeHyp[2];
+            << " timeHyp[proton]=" << trkInfo.trkTimeHyp[2];
       }
     }
   }
   if (wsum > 0) {
-
-    LOG << "vertexTimeFromTracks:   wsum = " << wsum << " tsum = " << tsum << " t0 = " << (wsum > 0 ? tsum/wsum : 0) << " trec = " << vtx.time();
+    LOG << "vertexTimeFromTracks:   wsum = " << wsum << " tsum = " << tsum << " t0 = " << (wsum > 0 ? tsum / wsum : 0)
+        << " trec = " << vtx.time();
 
     auto t0 = tsum / wsum;
-    auto beta = 1./Tstart_;
+    auto beta = 1. / Tstart_;
     int nit = 0;
-    while ( (nit++) < 100 ) {
+    while ((nit++) < 100) {
       tsum = 0;
       wsum = 0;
       w2sum = 0;
 
       for (auto const& trkInfo : v_trackInfo) {
         double dt = trkInfo.trkTimeError;
-        double e[3] = {0,0,0};
-        double Z = exp(-beta * 0.5* 3.* 3.);
-        for(unsigned int j = 0; j < 3; j++){
-          auto const tpull =  (trkInfo.trkTimeHyp[j] - t0) / dt;
-          e[j] = exp(- 0.5 * beta * tpull * tpull);
+        double e[3] = {0, 0, 0};
+        double Z = exp(-beta * 0.5 * 3. * 3.);
+        for (unsigned int j = 0; j < 3; j++) {
+          auto const tpull = (trkInfo.trkTimeHyp[j] - t0) / dt;
+          e[j] = exp(-0.5 * beta * tpull * tpull);
           Z += a[j] * e[j];
         }
 
         double wsum_trk = 0;
-        for(uint j = 0; j < 3; j++){
+        for (uint j = 0; j < 3; j++) {
           double wt = a[j] * e[j] / Z;
           double w = wt * trkInfo.trkWeight / (dt * dt);
           wsum_trk += w;
@@ -177,13 +182,14 @@ bool VertexTimeAlgorithmFromTracksPID::vertexTime(float& vtxTime, float& vtxTime
 
       vtxTime = tsum / wsum;
 
-      LOG << "vertexTimeFromTracks:   iteration=" << nit << ", T= " << 1/beta << ", t=" << vtxTime << ", t-t0=" << vtxTime-t0;
+      LOG << "vertexTimeFromTracks:   iteration=" << nit << ", T= " << 1 / beta << ", t=" << vtxTime
+          << ", t-t0=" << vtxTime - t0;
 
       if ((std::abs(vtxTime - t0) < 1e-4 / std::sqrt(beta)) and beta >= 1.) {
-
         vtxTimeError = std::sqrt(w2sum) / wsum;
 
-        LOG << "vertexTimeFromTracks:   tfit = " << vtxTime << " +/- " << vtxTimeError << " trec = " << vtx.time() << ", iteration=" << nit;
+        LOG << "vertexTimeFromTracks:   tfit = " << vtxTime << " +/- " << vtxTimeError << " trec = " << vtx.time()
+            << ", iteration=" << nit;
 
         return true;
       }
@@ -196,8 +202,7 @@ bool VertexTimeAlgorithmFromTracksPID::vertexTime(float& vtxTime, float& vtxTime
     }
 
     LOG << "vertexTimeFromTracks: failed to converge";
-  }
-  else {
+  } else {
     LOG << "vertexTimeFromTracks: has no track timing info";
   }
 

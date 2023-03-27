@@ -14,16 +14,19 @@
 #include "RecoVertex/VertexPrimitives/interface/VertexFitter.h"
 
 class SinglePrimaryVertexFitter : public PrimaryVertexFitterBase {
- public:
- SinglePrimaryVertexFitter():fitter(nullptr){};
- SinglePrimaryVertexFitter(VertexFitter<5>* vertex_fitter):fitter(vertex_fitter){};
-   ~SinglePrimaryVertexFitter() override = default;
+public:
+  SinglePrimaryVertexFitter() : fitter(nullptr){};
+  SinglePrimaryVertexFitter(VertexFitter<5> *vertex_fitter) : fitter(vertex_fitter){};
+  ~SinglePrimaryVertexFitter() override = default;
 
   //std::vector<TransientVertex> fit(const std::vector<reco::TransientTrack> &, const std::vector<TransientVertex> &, const reco::BeamSpot &, const bool );
-  std::vector<TransientVertex> fit(const std::vector<reco::TransientTrack> &, const std::vector<TransientVertex> &, const reco::BeamSpot &, const bool) override;
+  std::vector<TransientVertex> fit(const std::vector<reco::TransientTrack> &,
+                                   const std::vector<TransientVertex> &,
+                                   const reco::BeamSpot &,
+                                   const bool) override;
 
- protected:
+protected:
   // configuration
-  VertexFitter<5>* fitter;  // Kalman or Adaptive
+  VertexFitter<5> *fitter;  // Kalman or Adaptive
 };
 #endif

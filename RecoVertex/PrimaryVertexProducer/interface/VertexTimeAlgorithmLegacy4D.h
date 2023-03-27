@@ -7,7 +7,7 @@
 #include "DataFormats/Common/interface/ValueMap.h"
 
 class VertexTimeAlgorithmLegacy4D : public VertexTimeAlgorithmBase {
- public:
+public:
   VertexTimeAlgorithmLegacy4D(const edm::ParameterSet& conf, edm::ConsumesCollector& iC);
   ~VertexTimeAlgorithmLegacy4D() override = default;
 
@@ -16,7 +16,6 @@ class VertexTimeAlgorithmLegacy4D : public VertexTimeAlgorithmBase {
   void setEvent(edm::Event& iEvent, edm::EventSetup const& iSetup) override;
 
   bool vertexTime(float& vtxTime, float& vtxTimeError, TransientVertex const& vtx) const override;
-
 };
 
 #endif
