@@ -120,7 +120,7 @@ void MultiPrimaryVertexFitter::fill_trackinfo(const std::vector<reco::TransientT
 
 
 
-void MultiPrimaryVertexFitter::fill_weights(double beta,  const reco::BeamSpot & beamspot, const double Zcutoff){
+void MultiPrimaryVertexFitter::fill_weights(double beta,  const reco::BeamSpot & beamspot, const double /* Zcutoff */){
   unsigned const int nt = trackinfo.size();
   unsigned const int nv = xv.size();
 
@@ -546,8 +546,10 @@ std::vector<TransientVertex> MultiPrimaryVertexFitter::fit(const std::vector<rec
   // no annealing for now
   float beta = 1.0;
   double delta = 0;
-  double Zcutoff = 0.;
   float beam_weight = 1.; 
+#ifdef DEBUG
+  double Zcutoff = 0.;
+#endif
 
   unsigned int nit = 0;
   while((nit==0) || ((delta > 0.0001) && (nit < 50))){
