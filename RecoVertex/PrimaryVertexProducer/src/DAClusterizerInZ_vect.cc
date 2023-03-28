@@ -47,7 +47,7 @@ DAClusterizerInZ_vect::DAClusterizerInZ_vect(const edm::ParameterSet& conf) {
   block_size_ = conf.getParameter<unsigned int>("block_size");
   overlap_frac_ = conf.getParameter<double>("overlap_frac");
 
-  //#ifdef DEBUG
+ #ifdef DEBUG
   std::cout << "DAClusterizerinZ_vect: mintrkweight = " << mintrkweight_ << std::endl;
   std::cout << "DAClusterizerinZ_vect: uniquetrkweight = " << uniquetrkweight_ << std::endl;
   std::cout << "DAClusterizerInZ_vect: uniquetrkminp = " << uniquetrkminp_ << std::endl;
@@ -67,8 +67,8 @@ DAClusterizerInZ_vect::DAClusterizerInZ_vect(const edm::ParameterSet& conf) {
   std::cout << "DAClusterizerinZ_vect: run in blocks = " << runInBlocks_ << std::endl;
   std::cout << "DAClusterizerinZ_vect: block_size = " << block_size_ << std::endl;
   std::cout << "DAClusterizerinZ_vect: overlap_fraction = " << overlap_frac_ << std::endl;
-  //  std::cout << "DAClusterizerinZ_vect: DEBUGLEVEL " << DEBUGLEVEL << std::endl;
-  //#endif
+  std::cout << "DAClusterizerinZ_vect: DEBUGLEVEL " << DEBUGLEVEL << std::endl;
+ #endif
 
   if (convergence_mode_ > 1) {
     edm::LogWarning("DAClusterizerinZ_vect")
@@ -928,7 +928,6 @@ vector<TransientVertex> DAClusterizerInZ_vect::vertices_no_blocks(const vector<r
 }
 
 vector<TransientVertex> DAClusterizerInZ_vect::vertices_in_blocks(const vector<reco::TransientTrack>& tracks) const {
-  std::cout << "I'm totally blocked" << std::endl;
   vector<reco::TransientTrack> sorted_tracks;
   vector<pair<float, float>> vertices_tot;  // z, rho for each vertex
   for (unsigned int i = 0; i < tracks.size(); i++) {
