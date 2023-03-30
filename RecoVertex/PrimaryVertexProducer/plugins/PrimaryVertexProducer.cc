@@ -18,12 +18,6 @@
 
 #include "RecoVertex/VertexTools/interface/GeometricAnnealing.h"
 
-#define cputime
-#ifdef cputime
-#include <chrono>
-typedef std::chrono::duration<int, std::micro> microseconds_type;
-#endif
-
 PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
     : theTTBToken(esConsumes(edm::ESInputTag("", "TransientTrackBuilder"))), theConfig(conf) {
   fVerbose = conf.getUntrackedParameter<bool>("verbose", false);
@@ -232,18 +226,8 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
   // select tracks
   std::vector<reco::TransientTrack>&& seltks = theTrackFilter->select(t_tks);
 
-#ifdef cputime
-  std::chrono::duration<int, std::micro> tcpu_clustering(0), tcpu_vtxfit(0), tcpu_vtxtime(0);
-  auto start_clustering = std::chrono::high_resolution_clock::now();
-#endif
-
   // clusterize tracks in Z
   std::vector<TransientVertex>&& clusters = theTrackClusterizer->vertices(seltks);
-
-#ifdef cputime
-  auto stop_clustering = std::chrono::high_resolution_clock::now();
-  tcpu_clustering = std::chrono::duration_cast<std::chrono::microseconds>(stop_clustering - start_clustering);
-#endif
 
   if (fVerbose) {
     std::cout << " clustering returned  " << clusters.size() << " clusters  from " << seltks.size()
@@ -256,29 +240,15 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
     reco::VertexCollection& vColl = (*result);
     std::vector<TransientVertex> pvs;
 
-#ifdef cputime
-    auto start_fit = std::chrono::high_resolution_clock::now();
-#endif
     if (algorithm->pv_fitter == nullptr) {
       pvs = clusters;
     } else {
       pvs = algorithm->pv_fitter->fit(seltks, clusters, beamSpot, algorithm->useBeamConstraint);
     }
-#ifdef cputime
-    auto stop_fit = std::chrono::high_resolution_clock::now();
-    tcpu_vtxfit = std::chrono::duration_cast<std::chrono::microseconds>(stop_fit - start_fit);
-#endif
 
-#ifdef cputime
-    auto start_vtxtime = std::chrono::high_resolution_clock::now();
-#endif
     if (algorithm->pv_time_estimator != nullptr) {
       algorithm->pv_time_estimator->fill_vertex_times(pvs);
     }
-#ifdef cputime
-    auto stop_vtxtime = std::chrono::high_resolution_clock::now();
-    tcpu_vtxtime = std::chrono::duration_cast<std::chrono::microseconds>(stop_vtxtime - start_vtxtime);
-#endif
 
     // sort vertices by pt**2  vertex
     if (pvs.size() > 1) {
@@ -342,15 +312,6 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
         std::cout << std::endl;
       }
     }
-
-#ifdef cputime
-    // create a dummy vertex as a container for timing info
-    AlgebraicSymMatrix33 we;
-    we(0, 0) = tcpu_clustering.count() * 1e-3;  // microseconds to milliseconds
-    we(1, 1) = tcpu_vtxfit.count() * 1e-3;
-    we(2, 2) = tcpu_vtxtime.count() * 1e-3;
-    vColl.push_back(reco::Vertex(beamSpot.position(), we, 0., 0., 0));
-#endif
 
     iEvent.put(std::move(result), algorithm->label);
   }
