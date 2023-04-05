@@ -176,10 +176,12 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
     edm::LogError("UnusableBeamSpot") << "No beam spot available from EventSetup";
   }
 
+  bool validBS = true;
   VertexState beamVertexState(beamSpot);
   if ((beamVertexState.error().cxx() <= 0.) || (beamVertexState.error().cyy() <= 0.) ||
       (beamVertexState.error().czz() <= 0.)) {
     edm::LogError("UnusableBeamSpot") << "Beamspot with invalid errors " << beamVertexState.error().matrix();
+    validBS = false;
   }
 
   //if this is a recovery iteration, check if we already have a valid PV
@@ -255,10 +257,14 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
       sort(pvs.begin(), pvs.end(), VertexHigherPtSquared());
     }
 
-    // convert transient vertices to (reco) vertices
+    // select and convert transient vertices to (reco) vertices
     for (std::vector<TransientVertex>::const_iterator iv = pvs.begin(); iv != pvs.end(); iv++) {
-      reco::Vertex v = *iv;
-      vColl.push_back(v);
+      if(iv->isValid() && (iv->degreesOfFreedom() >= algorithm->minNdof)){
+	reco::Vertex v = *iv;
+	if (!validBS || ((*(algorithm->vertexSelector))(v, beamVertexState))){
+	  vColl.push_back(v);
+	}
+      }
     }
 
     if (fVerbose) {
