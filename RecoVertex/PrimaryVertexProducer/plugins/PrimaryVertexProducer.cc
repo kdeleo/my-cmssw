@@ -113,7 +113,7 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
         } else if (vertexTimeAlgorithm == "legacy4D") {
           useTransientTrackTime = true;
           algorithm.pv_time_estimator =
-              new VertexTimeAlgorithmLegacy4D(algoconf->getParameter<edm::ParameterSet>("legacy4D"), collector);
+              new VertexTimeAlgorithmLegacy4D(pv_time_conf.getParameter<edm::ParameterSet>("legacy4D"), collector);
           algorithm.is_4D = true;
         } else if (vertexTimeAlgorithm == "fromTracksPID") {
           algorithm.pv_time_estimator = new VertexTimeAlgorithmFromTracksPID(
