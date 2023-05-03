@@ -3,10 +3,61 @@ from RecoVertex.Configuration.RecoVertex_cff import unsortedOfflinePrimaryVertic
 
 from RecoVertex.PrimaryVertexProducer.TkClusParameters_cff import DA2D_vectParameters
 
+unsortedOfflinePrimaryVertices3Dt = unsortedOfflinePrimaryVertices.clone(
+    vertexCollections = cms.VPSet(
+        cms.PSet(
+            algorithm = cms.string('AdaptiveVertexFitter'),
+            chi2cutoff = cms.double(2.5),
+            label = cms.string(''),
+            maxDistanceToBeam = cms.double(1.0),
+            minNdof = cms.double(0.0),
+            useBeamConstraint = cms.bool(False),
+            vertexTimeParameters = cms.PSet(
+                algorithm = cms.string('fromTracksPID')
+            )
+        ),
+        cms.PSet(
+            algorithm = cms.string('AdaptiveVertexFitter'),
+            chi2cutoff = cms.double(2.5),
+            label = cms.string('WithBS'),
+            maxDistanceToBeam = cms.double(1.0),
+            minNdof = cms.double(2.0),
+            useBeamConstraint = cms.bool(True),
+            vertexTimeParameters = cms.PSet(
+                algorithm = cms.string('fromTracksPID')
+            )
+        )
+    )
+
+)
 unsortedOfflinePrimaryVertices4D = unsortedOfflinePrimaryVertices.clone(
     TkClusParameters = DA2D_vectParameters,
     TrackTimesLabel = cms.InputTag("trackTimeValueMapProducer","generalTracksConfigurableFlatResolutionModel"),
     TrackTimeResosLabel = cms.InputTag("trackTimeValueMapProducer","generalTracksConfigurableFlatResolutionModelResolution"),
+    vertexCollections = cms.VPSet(
+        cms.PSet(
+            algorithm = cms.string('AdaptiveVertexFitter'),
+            chi2cutoff = cms.double(2.5),
+            label = cms.string(''),
+            maxDistanceToBeam = cms.double(1.0),
+            minNdof = cms.double(0.0),
+            useBeamConstraint = cms.bool(False),
+            vertexTimeParameters = cms.PSet(
+                algorithm = cms.string('legacy4D')
+            )
+        ),
+        cms.PSet(
+            algorithm = cms.string('AdaptiveVertexFitter'),
+            chi2cutoff = cms.double(2.5),
+            label = cms.string('WithBS'),
+            maxDistanceToBeam = cms.double(1.0),
+            minNdof = cms.double(2.0),
+            useBeamConstraint = cms.bool(True),
+            vertexTimeParameters = cms.PSet(
+                algorithm = cms.string('legacy4D')
+            )
+        )
+    )
 )
 trackWithVertexRefSelectorBeforeSorting4D = trackWithVertexRefSelector.clone(
     vertexTag = "unsortedOfflinePrimaryVertices4D",
