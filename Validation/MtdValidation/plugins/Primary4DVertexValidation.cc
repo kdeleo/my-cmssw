@@ -1712,7 +1712,8 @@ void Primary4DVertexValidation::fillDescriptions(edm::ConfigurationDescriptions&
   desc.add<edm::InputTag>("mtdTracks", edm::InputTag("trackExtenderWithMTD"));
   desc.add<edm::InputTag>("SimTag", edm::InputTag("mix", "MergedTrackTruth"));
   desc.add<edm::InputTag>("offlineBS", edm::InputTag("offlineBeamSpot"));
-  desc.add<edm::InputTag>("offline4DPV", edm::InputTag("offlinePrimaryVertices4D"));
+  //desc.add<edm::InputTag>("offline4DPV", edm::InputTag("offlinePrimaryVertices4D"));
+  desc.add<edm::InputTag>("offline4DPV", edm::InputTag("offlinePrimaryVertices"));
   desc.add<edm::InputTag>("trackAssocSrc", edm::InputTag("trackExtenderWithMTD:generalTrackassoc"))
       ->setComment("Association between General and MTD Extended tracks");
   desc.add<edm::InputTag>("pathLengthSrc", edm::InputTag("trackExtenderWithMTD:generalTrackPathLength"));
@@ -1723,6 +1724,9 @@ void Primary4DVertexValidation::fillDescriptions(edm::ConfigurationDescriptions&
   desc.add<edm::InputTag>("t0PID", edm::InputTag("tofPID:t0"));
   desc.add<edm::InputTag>("t0SafePID", edm::InputTag("tofPID:t0safe"));
   desc.add<edm::InputTag>("sigmat0SafePID", edm::InputTag("tofPID:sigmat0safe"));
+  //desc.add<edm::InputTag>("t0PID", edm::InputTag("tofPID3D:t0"));
+  //desc.add<edm::InputTag>("t0SafePID", edm::InputTag("tofPID3D:t0safe"));
+  //desc.add<edm::InputTag>("sigmat0SafePID", edm::InputTag("tofPID3D:sigmat0safe"));
   desc.add<edm::InputTag>("trackMVAQual", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"));
   desc.add<edm::InputTag>("tofPi", edm::InputTag("trackExtenderWithMTD:generalTrackTofPi"));
   desc.add<edm::InputTag>("tofK", edm::InputTag("trackExtenderWithMTD:generalTrackTofK"));
@@ -1730,6 +1734,9 @@ void Primary4DVertexValidation::fillDescriptions(edm::ConfigurationDescriptions&
   desc.add<edm::InputTag>("probPi", edm::InputTag("tofPID:probPi"));
   desc.add<edm::InputTag>("probK", edm::InputTag("tofPID:probK"));
   desc.add<edm::InputTag>("probP", edm::InputTag("tofPID:probP"));
+  //desc.add<edm::InputTag>("probPi", edm::InputTag("tofPID3D:probPi"));
+  //desc.add<edm::InputTag>("probK", edm::InputTag("tofPID3D:probK"));
+  //desc.add<edm::InputTag>("probP", edm::InputTag("tofPID3D:probP"));
   desc.add<bool>("useOnlyChargedTracks", true);
   desc.addUntracked<bool>("debug", false);
   desc.addUntracked<bool>("optionalPlots", false);
