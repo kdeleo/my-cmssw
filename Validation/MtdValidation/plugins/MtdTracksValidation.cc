@@ -889,8 +889,7 @@ void MtdTracksValidation::fillDescriptions(edm::ConfigurationDescriptions& descr
   desc.add<std::string>("folder", "MTD/Tracks");
   desc.add<edm::InputTag>("inputTagG", edm::InputTag("generalTracks"));
   desc.add<edm::InputTag>("inputTagT", edm::InputTag("trackExtenderWithMTD"));
-  //desc.add<edm::InputTag>("inputTagV", edm::InputTag("offlinePrimaryVertices4D"));
-  desc.add<edm::InputTag>("inputTagV", edm::InputTag("offlinePrimaryVertices"));
+  desc.add<edm::InputTag>("inputTagV", edm::InputTag("offlinePrimaryVertices4D"));
   desc.add<edm::InputTag>("inputTagH", edm::InputTag("generatorSmeared"));
   desc.add<edm::InputTag>("SimTag", edm::InputTag("mix", "MergedTrackTruth"));
   desc.add<edm::InputTag>("TPtoRecoTrackAssoc", edm::InputTag("trackingParticleRecoTrackAsssociation"));
@@ -903,10 +902,6 @@ void MtdTracksValidation::fillDescriptions(edm::ConfigurationDescriptions& descr
   desc.add<edm::InputTag>("trackAssocSrc", edm::InputTag("trackExtenderWithMTD:generalTrackassoc"))
       ->setComment("Association between General and MTD Extended tracks");
   desc.add<edm::InputTag>("pathLengthSrc", edm::InputTag("trackExtenderWithMTD:generalTrackPathLength"));
-  //desc.add<edm::InputTag>("t0SafePID", edm::InputTag("tofPID3D:t0safe"));
-  //desc.add<edm::InputTag>("sigmat0SafePID", edm::InputTag("tofPID3D:sigmat0safe"));
-  //desc.add<edm::InputTag>("sigmat0PID", edm::InputTag("tofPID3D:sigmat0"));
-  //desc.add<edm::InputTag>("t0PID", edm::InputTag("tofPID3D:t0"));
   desc.add<edm::InputTag>("t0SafePID", edm::InputTag("tofPID:t0safe"));
   desc.add<edm::InputTag>("sigmat0SafePID", edm::InputTag("tofPID:sigmat0safe"));
   desc.add<edm::InputTag>("sigmat0PID", edm::InputTag("tofPID:sigmat0"));
