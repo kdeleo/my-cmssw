@@ -398,7 +398,6 @@ void TOFPIDProducer3D::produce(edm::Event& ev, const edm::EventSetup& es) {
    if(track_prob_PID_p > track_prob_PID_pi && track_prob_PID_p > track_prob_PID_k){
       t0_best = t0_p;
       t0safe = t0_p;
-      sigmat0safe = sigmatmtd;
    }
    if( (1. - track_prob_PID_pi ) > 0.75 ) t0 = t0_best;
    
@@ -406,7 +405,7 @@ void TOFPIDProducer3D::produce(edm::Event& ev, const edm::EventSetup& es) {
   
    //std::cout << "- Final Track t0 best reassign " << t0 << " t0_k " << t0_k << " t0_p " << t0_p << " t0safe max " << t0safe << " sigmat0 " << sigmat0 << " sigmat0safe " << sigmat0safe << std::endl;
 
-   t0OutRaw.push_back(t0_best);
+   t0OutRaw.push_back(t0);
    sigmat0OutRaw.push_back(sigmat0);
    t0safeOutRaw.push_back(t0safe);
    sigmat0safeOutRaw.push_back(sigmat0safe); 
