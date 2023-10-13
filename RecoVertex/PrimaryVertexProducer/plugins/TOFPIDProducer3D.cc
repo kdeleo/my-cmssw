@@ -389,17 +389,24 @@ void TOFPIDProducer3D::produce(edm::Event& ev, const edm::EventSetup& es) {
     } // RECO VTX LOOP
    } // IF VTX-tracks 
                     
-   sigmat0safe = sigmatmtd;
+   if( track_prob_PID_pi != -1 && track_prob_PID_k != -1 && track_prob_PID_p != -1){ 
+     sigmat0safe = sigmatmtd;
 
-   if(track_prob_PID_k > track_prob_PID_pi && track_prob_PID_k > track_prob_PID_p){
-      t0_best = t0_k;
-      t0safe = t0_k;
+     if(track_prob_PID_k > track_prob_PID_pi && track_prob_PID_k > track_prob_PID_p){
+        t0_best = t0_k;
+        t0safe = t0_k;
+     }
+     if(track_prob_PID_p > track_prob_PID_pi && track_prob_PID_p > track_prob_PID_k){
+        t0_best = t0_p;
+        t0safe = t0_p;
+     }
+     if( (1. - track_prob_PID_pi ) > 0.75 ) t0 = t0_best;
+   }else{
+     t0=0;
+     t0safe=0;
+     sigmat0=-1;
+     sigmat0safe=-1;
    }
-   if(track_prob_PID_p > track_prob_PID_pi && track_prob_PID_p > track_prob_PID_k){
-      t0_best = t0_p;
-      t0safe = t0_p;
-   }
-   if( (1. - track_prob_PID_pi ) > 0.75 ) t0 = t0_best;
    
    //std::cout << "-Final prob_pi " << track_prob_PID_pi << " prob_k " << track_prob_PID_k << " prob_p " << track_prob_PID_p << std::endl;
   
