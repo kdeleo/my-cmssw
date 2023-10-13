@@ -54,6 +54,7 @@ private:
   double maxDtSignificance_;
   double minProbHeavy_;
   double fixedT0Error_;
+  bool secondStage_;
 };
 
 TOFPIDProducer::TOFPIDProducer(const ParameterSet& iConfig)
@@ -69,7 +70,8 @@ TOFPIDProducer::TOFPIDProducer(const ParameterSet& iConfig)
       maxDz_(iConfig.getParameter<double>("maxDz")),
       maxDtSignificance_(iConfig.getParameter<double>("maxDtSignificance")),
       minProbHeavy_(iConfig.getParameter<double>("minProbHeavy")),
-      fixedT0Error_(iConfig.getParameter<double>("fixedT0Error")) {
+      fixedT0Error_(iConfig.getParameter<double>("fixedT0Error")),
+      secondStage_(iConfig.getParameter<bool>("secondStage")) {
   produces<edm::ValueMap<float>>(t0Name);
   produces<edm::ValueMap<float>>(sigmat0Name);
   produces<edm::ValueMap<float>>(t0safeName);
@@ -107,6 +109,7 @@ void TOFPIDProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<double>("minProbHeavy", 0.75)
       ->setComment("Minimum probability for a particle to be a kaon or proton before reassigning the timestamp");
   desc.add<double>("fixedT0Error", 0.)->setComment("Use a fixed T0 uncertainty [ns]");
+  desc.add<bool>("secondStage", false)->setComment("Track reassignment");
 
   descriptions.add("tofPIDProducer", desc);
 }
@@ -239,7 +242,12 @@ void TOFPIDProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
         double chisqmin_k = std::numeric_limits<double>::max();
         double chisqmin_p = std::numeric_limits<double>::max();
         //loop through vertices and check for better matches
-        for (const reco::Vertex& vtx : vtxs) {
+	//for (const reco::Vertex& vtx : vtxs) {
+	for (unsigned int ivtx = 0; ivtx < vtxs.size(); ++ivtx) {
+	  const reco::Vertex& vtx = vtxs[ivtx];
+          if ( secondStage_ == true ) { 
+	    if ( ivtx != (unsigned int)vtxidx ) continue;
+	  }
           if (!(vtx.tError() > 0. && vtx.tError() < vtxMaxSigmaT_)) {
             continue;
           }
