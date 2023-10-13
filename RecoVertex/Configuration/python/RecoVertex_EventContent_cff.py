@@ -19,7 +19,6 @@ _phase2_tktiming_RecoVertexEventContent = [ 'keep *_offlinePrimaryVertices4D__*'
 
 _phase2_tktiming_layer_RecoVertexEventContent = [ 'keep *_offlinePrimaryVertices4DnoPID__*',
                                                   'keep *_offlinePrimaryVertices4DnoPIDWithBS__*',
-                                                  'keep *_tofPID3D_*_*',
                                                   'keep *_tofPID_*_*']
 phase2_timing.toModify( RecoVertexAOD,
      outputCommands = RecoVertexAOD.outputCommands + _phase2_tktiming_RecoVertexEventContent)
