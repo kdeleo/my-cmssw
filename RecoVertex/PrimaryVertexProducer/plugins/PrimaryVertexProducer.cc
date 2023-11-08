@@ -259,11 +259,11 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
 
     // select and convert transient vertices to (reco) vertices
     for (std::vector<TransientVertex>::const_iterator iv = pvs.begin(); iv != pvs.end(); iv++) {
-      if(iv->isValid() && (iv->degreesOfFreedom() >= algorithm->minNdof)){
-	reco::Vertex v = *iv;
-	if (!validBS || ((*(algorithm->vertexSelector))(v, beamVertexState))){
-	  vColl.push_back(v);
-	}
+      if (iv->isValid() && (iv->degreesOfFreedom() >= algorithm->minNdof)) {
+        reco::Vertex v = *iv;
+        if (!validBS || ((*(algorithm->vertexSelector))(v, beamVertexState))) {
+          vColl.push_back(v);
+        }
       }
     }
 
