@@ -97,5 +97,5 @@ phase2_timing_layer.toModify(offlinePrimaryVertices, vertices = "unsortedOffline
 phase2_timing_layer.toModify(offlinePrimaryVertices4D, vertices = "unsortedOfflinePrimaryVertices4D", particles = "trackRefsForJetsBeforeSorting4D")
 phase2_timing_layer.toModify(offlinePrimaryVertices4DWithBS, vertices = "unsortedOfflinePrimaryVertices4D:WithBS", particles = "trackRefsForJetsBeforeSorting4D")
 
-from Configuration.ProcessModifiers.vertex3Dt4D_tofdef_cff import vertex3Dt4D_tofdef
-vertex3Dt4D_tofdef.toModify(tofPID4DnoPID, vtxsSrc='unsortedOfflinePrimaryVertices3Dt')
+from Configuration.ProcessModifiers.vertex3Dt4D_cff import vertex3Dt4D
+vertex3Dt4D.toModify(tofPID4DnoPID, vtxsSrc='unsortedOfflinePrimaryVertices3Dt')
