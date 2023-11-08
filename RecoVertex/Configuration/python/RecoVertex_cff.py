@@ -54,7 +54,6 @@ from RecoVertex.Configuration.RecoVertex_phase2_timing_cff import (tpClusterProd
                                                                   unsortedOfflinePrimaryVertices3Dt ,
                                                                   offlinePrimaryVertices4DwithPID ,
                                                                   offlinePrimaryVertices4DwithPIDWithBS,
-                                                                  tofPID3D,
                                                                   tofPID,
                                                                   tofPID4DnoPID,
                                                                   unsortedOfflinePrimaryVertices4D,
@@ -81,7 +80,6 @@ _phase2_tktiming_layer_vertexrecoTask = cms.Task( _phase2_tktiming_vertexrecoTas
                                             trackRefsForJetsBeforeSorting4DnoPID ,
                                             offlinePrimaryVertices4DnoPID ,
                                             offlinePrimaryVertices4DnoPIDWithBS,
-                                            tofPID3D,
                                             tofPID,
                                             tofPID4DnoPID
                                             )
@@ -98,11 +96,6 @@ phase2_timing_layer.toReplaceWith(offlinePrimaryVertices4DWithBS, offlinePrimary
 phase2_timing_layer.toModify(offlinePrimaryVertices, vertices = "unsortedOfflinePrimaryVertices3Dt", particles = "trackRefsForJetsBeforeSorting")
 phase2_timing_layer.toModify(offlinePrimaryVertices4D, vertices = "unsortedOfflinePrimaryVertices4D", particles = "trackRefsForJetsBeforeSorting4D")
 phase2_timing_layer.toModify(offlinePrimaryVertices4DWithBS, vertices = "unsortedOfflinePrimaryVertices4D:WithBS", particles = "trackRefsForJetsBeforeSorting4D")
-
-from Configuration.ProcessModifiers.vertex3Dt4D_cff import vertex3Dt4D
-vertex3Dt4D.toModify(unsortedOfflinePrimaryVertices4D, TrackTimesLabel = "tofPID3D:t0safe", TrackTimeResosLabel = "tofPID3D:sigmat0safe")
-vertex3Dt4D.toModify(offlinePrimaryVertices4D, trackTimeTag = "tofPID3D:t0safe", trackTimeResoTag = "tofPID3D:sigmat0safe")
-vertex3Dt4D.toModify(offlinePrimaryVertices4DWithBS, trackTimeTag = "tofPID3D:t0safe", trackTimeResoTag = "tofPID3D:sigmat0safe")
 
 from Configuration.ProcessModifiers.vertex3Dt4D_tofdef_cff import vertex3Dt4D_tofdef
 vertex3Dt4D_tofdef.toModify(tofPID4DnoPID, vtxsSrc='unsortedOfflinePrimaryVertices3Dt')
