@@ -21,6 +21,7 @@
 PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
     : theTTBToken(esConsumes(edm::ESInputTag("", "TransientTrackBuilder"))), theConfig(conf) {
   fVerbose = conf.getUntrackedParameter<bool>("verbose", false);
+  useMVASelection = conf.getParameter<bool>("useMVACut");
 
   trkToken = consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("TrackLabel"));
   bsToken = consumes<reco::BeamSpot>(conf.getParameter<edm::InputTag>("beamSpotLabel"));
@@ -59,6 +60,9 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
   if (useTransientTrackTime) {
     trkTimesToken = consumes<edm::ValueMap<float> >(conf.getParameter<edm::InputTag>("TrackTimesLabel"));
     trkTimeResosToken = consumes<edm::ValueMap<float> >(conf.getParameter<edm::InputTag>("TrackTimeResosLabel"));
+    trackMTDTimeQualityToken =
+        consumes<edm::ValueMap<float> >(conf.getParameter<edm::InputTag>("trackMTDTimeQualityVMapTag"));
+    minTrackTimeQuality = conf.getParameter<double>("minTrackTimeQuality");
   }
 
   // select and configure the vertex fitters
@@ -216,11 +220,28 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
   std::vector<reco::TransientTrack> t_tks;
 
   if (useTransientTrackTime) {
-    edm::Handle<edm::ValueMap<float> > trackTimesH;
     edm::Handle<edm::ValueMap<float> > trackTimeResosH;
-    iEvent.getByToken(trkTimesToken, trackTimesH);
     iEvent.getByToken(trkTimeResosToken, trackTimeResosH);
-    t_tks = (*theB).build(tks, beamSpot, *(trackTimesH.product()), *(trackTimeResosH.product()));
+
+    if (useMVASelection) {
+      trackMTDTimeQualities_ = iEvent.get(trackMTDTimeQualityToken);
+      edm::Handle<edm::ValueMap<float> > MVAQualH;
+      iEvent.getByToken(trackMTDTimeQualityToken, MVAQualH);
+
+      trackTimes_ = iEvent.get(trkTimesToken);
+      for (unsigned int i = 0; i < (*tks).size(); i++) {
+        const reco::TrackRef ref(tks, i);
+        auto const trkTimeQuality = trackMTDTimeQualities_[ref];
+        if (trkTimeQuality < minTrackTimeQuality) {
+          trackTimes_[ref] = std::numeric_limits<double>::max();
+        }
+      }
+      t_tks = (*theB).build(tks, beamSpot, trackTimes_, *(trackTimeResosH.product()));
+    } else {
+      edm::Handle<edm::ValueMap<float> > trackTimesH;
+      iEvent.getByToken(trkTimesToken, trackTimesH);
+      t_tks = (*theB).build(tks, beamSpot, *(trackTimesH.product()), *(trackTimeResosH.product()));
+    }
   } else {
     t_tks = (*theB).build(tks, beamSpot);
   }
@@ -391,8 +412,9 @@ void PrimaryVertexProducer::fillDescriptions(edm::ConfigurationDescriptions& des
   }
   desc.add<edm::InputTag>("beamSpotLabel", edm::InputTag("offlineBeamSpot"));
   desc.add<edm::InputTag>("TrackLabel", edm::InputTag("generalTracks"));
-  desc.add<edm::InputTag>("TrackTimeResosLabel", edm::InputTag("dummy_default"));  // 4D only
-  desc.add<edm::InputTag>("TrackTimesLabel", edm::InputTag("dummy_default"));      // 4D only
+  desc.add<edm::InputTag>("TrackTimeResosLabel", edm::InputTag("dummy_default"));                         // 4D only
+  desc.add<edm::InputTag>("TrackTimesLabel", edm::InputTag("dummy_default"));                             // 4D only
+  desc.add<edm::InputTag>("trackMTDTimeQualityVMapTag", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"));  // 4D only
 
   {
     edm::ParameterSetDescription psd0;
@@ -411,6 +433,8 @@ void PrimaryVertexProducer::fillDescriptions(edm::ConfigurationDescriptions& des
 
   desc.add<bool>("isRecoveryIteration", false);
   desc.add<edm::InputTag>("recoveryVtxCollection", {""});
+  desc.add<bool>("useMVACut", false);
+  desc.add<double>("minTrackTimeQuality", 0.8);
 
   descriptions.add("primaryVertexProducer", desc);
 }
