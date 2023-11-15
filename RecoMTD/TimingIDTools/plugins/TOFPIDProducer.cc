@@ -49,12 +49,18 @@ private:
   edm::EDGetTokenT<edm::ValueMap<float>> tofkToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> tofpToken_;
   edm::EDGetTokenT<reco::VertexCollection> vtxsToken_;
+  edm::EDGetTokenT<edm::ValueMap<float>> trackMTDTimeQualityToken_;
   double vtxMaxSigmaT_;
   double maxDz_;
   double maxDtSignificance_;
   double minProbHeavy_;
   double fixedT0Error_;
-  bool secondStage_;
+  double probPion_;
+  double probKaon_;
+  double probProton_;
+  double minTrackTimeQuality_;
+  bool MVASel_;
+  bool offVertexReassignment_;
 };
 
 TOFPIDProducer::TOFPIDProducer(const ParameterSet& iConfig)
@@ -66,12 +72,19 @@ TOFPIDProducer::TOFPIDProducer(const ParameterSet& iConfig)
       tofkToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofkSrc"))),
       tofpToken_(consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("tofpSrc"))),
       vtxsToken_(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("vtxsSrc"))),
+      trackMTDTimeQualityToken_(
+          consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("trackMTDTimeQualityVMapTag"))),
       vtxMaxSigmaT_(iConfig.getParameter<double>("vtxMaxSigmaT")),
       maxDz_(iConfig.getParameter<double>("maxDz")),
       maxDtSignificance_(iConfig.getParameter<double>("maxDtSignificance")),
       minProbHeavy_(iConfig.getParameter<double>("minProbHeavy")),
       fixedT0Error_(iConfig.getParameter<double>("fixedT0Error")),
-      secondStage_(iConfig.getParameter<bool>("secondStage")) {
+      probPion_(iConfig.getParameter<double>("probPion")),
+      probKaon_(iConfig.getParameter<double>("probKaon")),
+      probProton_(iConfig.getParameter<double>("probProton")),
+      minTrackTimeQuality_(iConfig.getParameter<double>("minTrackTimeQuality")),
+      MVASel_(iConfig.getParameter<bool>("MVASel")),
+      offVertexReassignment_(iConfig.getParameter<bool>("offVertexReassignment")) {
   produces<edm::ValueMap<float>>(t0Name);
   produces<edm::ValueMap<float>>(sigmat0Name);
   produces<edm::ValueMap<float>>(t0safeName);
@@ -99,6 +112,8 @@ void TOFPIDProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptio
       ->setComment("Input ValueMap for track tof as proton");
   desc.add<edm::InputTag>("vtxsSrc", edm::InputTag("unsortedOfflinePrimaryVertices4DwithPID"))
       ->setComment("Input primary vertex collection");
+  desc.add<edm::InputTag>("trackMTDTimeQualityVMapTag", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"))
+      ->setComment("Track MVA quality value");
   desc.add<double>("vtxMaxSigmaT", 0.025)
       ->setComment("Maximum primary vertex time uncertainty for use in particle id [ns]");
   desc.add<double>("maxDz", 0.1)
@@ -109,7 +124,12 @@ void TOFPIDProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<double>("minProbHeavy", 0.75)
       ->setComment("Minimum probability for a particle to be a kaon or proton before reassigning the timestamp");
   desc.add<double>("fixedT0Error", 0.)->setComment("Use a fixed T0 uncertainty [ns]");
-  desc.add<bool>("secondStage", false)->setComment("Track reassignment");
+  desc.add<double>("probPion", 1.)->setComment("A priori probability pions");
+  desc.add<double>("probKaon", 1.)->setComment("A priori probability kaons");
+  desc.add<double>("probProton", 1.)->setComment("A priori probability for protons");
+  desc.add<double>("minTrackTimeQuality", 0.8)->setComment("Minimum MVA Quality selection on tracks");
+  desc.add<bool>("MVASel", false)->setComment("Use MVA Quality selection");
+  desc.add<bool>("offVertexReassignment", false)->setComment("Switch off track-vertex reassignment");
 
   descriptions.add("tofPIDProducer", desc);
 }
@@ -145,6 +165,8 @@ void TOFPIDProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
 
   const auto& vtxs = ev.get(vtxsToken_);
 
+  const auto& trackMVAQualIn = ev.get(trackMTDTimeQualityToken_);
+
   //output value maps (PID probabilities and recalculated time at beamline)
   std::vector<float> t0OutRaw;
   std::vector<float> sigmat0OutRaw;
@@ -168,7 +190,9 @@ void TOFPIDProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
     float prob_k = -1.;
     float prob_p = -1.;
 
-    if (sigmat0 > 0.) {
+    float trackMVAQual = trackMVAQualIn[trackref];
+
+    if (sigmat0 > 0. && (!MVASel_ || (MVASel_ && trackMVAQual >= minTrackTimeQuality_))) {
       double rsigmazsq = 1. / track.dzError() / track.dzError();
       double rsigmat = 1. / sigmatmtd;
 
@@ -242,12 +266,12 @@ void TOFPIDProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
         double chisqmin_k = std::numeric_limits<double>::max();
         double chisqmin_p = std::numeric_limits<double>::max();
         //loop through vertices and check for better matches
-	//for (const reco::Vertex& vtx : vtxs) {
-	for (unsigned int ivtx = 0; ivtx < vtxs.size(); ++ivtx) {
-	  const reco::Vertex& vtx = vtxs[ivtx];
-          if ( secondStage_ == true ) { 
-	    if ( ivtx != (unsigned int)vtxidx ) continue;
-	  }
+        for (unsigned int ivtx = 0; ivtx < vtxs.size(); ++ivtx) {
+          const reco::Vertex& vtx = vtxs[ivtx];
+          if (offVertexReassignment_) {
+            if (ivtx != (unsigned int)vtxidx)
+              continue;
+          }
           if (!(vtx.tError() > 0. && vtx.tError() < vtxMaxSigmaT_)) {
             continue;
           }
@@ -291,9 +315,9 @@ void TOFPIDProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
 
         //compute PID probabilities
         //*TODO* deal with heavier nucleons and/or BSM case here?
-        double rawprob_pi = exp(-0.5 * chisqmin_pi);
-        double rawprob_k = exp(-0.5 * chisqmin_k);
-        double rawprob_p = exp(-0.5 * chisqmin_p);
+        double rawprob_pi = probPion_ * exp(-0.5 * chisqmin_pi);
+        double rawprob_k = probKaon_ * exp(-0.5 * chisqmin_k);
+        double rawprob_p = probProton_ * exp(-0.5 * chisqmin_p);
 
         double normprob = 1. / (rawprob_pi + rawprob_k + rawprob_p);
 
