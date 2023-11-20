@@ -129,7 +129,9 @@ from RecoMTD.TimingIDTools.tofPIDProducer_cfi import tofPIDProducer
 
 tofPID4DnoPID=tofPIDProducer.clone(vtxsSrc='unsortedOfflinePrimaryVertices4DnoPID')
 tofPID=tofPIDProducer.clone()
+tofPID3D=tofPIDProducer.clone(vtxsSrc='unsortedOfflinePrimaryVertices3Dt')
 
 from Configuration.Eras.Modifier_phase2_timing_layer_cff import phase2_timing_layer
-phase2_timing_layer.toModify(tofPID, vtxsSrc='unsortedOfflinePrimaryVertices4D', secondStage=True)
+phase2_timing_layer.toModify(tofPID, vtxsSrc='unsortedOfflinePrimaryVertices4D', offVertexReassignment=True)
+phase2_timing_layer.toModify(tofPID3D, offVertexReassignment=True)
 
