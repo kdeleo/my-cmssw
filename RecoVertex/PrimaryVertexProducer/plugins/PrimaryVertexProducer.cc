@@ -107,9 +107,9 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
         const auto& pv_time_conf = algoconf->getParameter<edm::ParameterSet>("vertexTimeParameters");
         const std::string vertexTimeAlgorithm = pv_time_conf.getParameter<std::string>("algorithm");
         if (fVerbose) {
-	  std::cout << " vertexTimeParamers found  " << algorithm.label << " : [" << vertexTimeAlgorithm << "]"
+          std::cout << " vertexTimeParamers found  " << algorithm.label << " : [" << vertexTimeAlgorithm << "]"
                     << std::endl;
-	}
+        }
         edm::ConsumesCollector&& collector = consumesCollector();
         if (vertexTimeAlgorithm.empty()) {
           algorithm.pv_time_estimator = nullptr;
