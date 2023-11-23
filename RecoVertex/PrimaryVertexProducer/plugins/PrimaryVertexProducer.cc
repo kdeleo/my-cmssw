@@ -35,7 +35,6 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
   } else if (trackSelectionAlgorithm == "filterWithThreshold") {
     theTrackFilter = new HITrackFilterForPVFinding(conf.getParameter<edm::ParameterSet>("TkFilterParameters"));
   } else {
-    std::cout << "PrimaryVertexProducer: unknown track selection algorithm: " + trackSelectionAlgorithm << std::endl;
     throw VertexException("PrimaryVertexProducer: unknown track selection algorithm: " + trackSelectionAlgorithm);
   }
 
@@ -53,7 +52,6 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
         conf.getParameter<edm::ParameterSet>("TkClusParameters").getParameter<edm::ParameterSet>("TkDAClusParameters"));
     useTransientTrackTime = true;
   } else {
-    std::cout << "PrimaryVertexProducer: unknown clustering algorithm: " + clusteringAlgorithm << std::endl;
     throw VertexException("PrimaryVertexProducer: unknown clustering algorithm: " + clusteringAlgorithm);
   }
 
@@ -96,7 +94,6 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
       } else if (fitterAlgorithm == "WeightedMeanFitter") {
         algorithm.pv_fitter = new WeightedMeanPrimaryVertexEstimator();
       } else {
-        std::cout << "PrimaryVertexProducer: unknown algorithm: " + fitterAlgorithm << std::endl;
         throw VertexException("PrimaryVertexProducer: unknown algorithm: " + fitterAlgorithm);
       }
       algorithm.minNdof = algoconf->getParameter<double>("minNdof");
@@ -109,8 +106,10 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
       if (algoconf->exists("vertexTimeParameters")) {
         const auto& pv_time_conf = algoconf->getParameter<edm::ParameterSet>("vertexTimeParameters");
         const std::string vertexTimeAlgorithm = pv_time_conf.getParameter<std::string>("algorithm");
-        std::cout << " vertexTimeParamers found  " << algorithm.label << " : [" << vertexTimeAlgorithm << "]"
-                  << std::endl;
+        if (fVerbose) {
+	  std::cout << " vertexTimeParamers found  " << algorithm.label << " : [" << vertexTimeAlgorithm << "]"
+                    << std::endl;
+	}
         edm::ConsumesCollector&& collector = consumesCollector();
         if (vertexTimeAlgorithm.empty()) {
           algorithm.pv_time_estimator = nullptr;
@@ -127,7 +126,7 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
           edm::LogWarning("MisConfiguration") << "unknown vertexTimeParameters.algorithm" << vertexTimeAlgorithm;
         }
       } else {
-        std::cout << " no vertexTimeParamers found for " << algorithm.label << std::endl;
+        edm::LogInfo("MisConfiguration") << " no vertexTimeParamers found for " << algorithm.label;
       }
       algorithms.push_back(algorithm);
 
@@ -143,7 +142,6 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
   fRecoveryIteration = conf.getParameter<bool>("isRecoveryIteration");
   if (fRecoveryIteration) {
     if (algorithms.empty()) {
-      std::cout << "PrimaryVertexProducer: No algorithm specified. " << std::endl;
       throw VertexException("PrimaryVertexProducer: No algorithm specified. ");
     } else if (algorithms.size() > 1) {
       throw VertexException(

@@ -3,33 +3,6 @@ from RecoVertex.Configuration.RecoVertex_cff import unsortedOfflinePrimaryVertic
 
 from RecoVertex.PrimaryVertexProducer.TkClusParameters_cff import DA2D_vectParameters
 
-unsortedOfflinePrimaryVertices3Dt = unsortedOfflinePrimaryVertices.clone(
-    vertexCollections = cms.VPSet(
-        cms.PSet(
-            algorithm = cms.string('AdaptiveVertexFitter'),
-            chi2cutoff = cms.double(2.5),
-            label = cms.string(''),
-            maxDistanceToBeam = cms.double(1.0),
-            minNdof = cms.double(0.0),
-            useBeamConstraint = cms.bool(False),
-            vertexTimeParameters = cms.PSet(
-                algorithm = cms.string('fromTracksPID')
-            )
-        ),
-        cms.PSet(
-            algorithm = cms.string('AdaptiveVertexFitter'),
-            chi2cutoff = cms.double(2.5),
-            label = cms.string('WithBS'),
-            maxDistanceToBeam = cms.double(1.0),
-            minNdof = cms.double(2.0),
-            useBeamConstraint = cms.bool(True),
-            vertexTimeParameters = cms.PSet(
-                algorithm = cms.string('fromTracksPID')
-            )
-        )
-    )
-
-)
 unsortedOfflinePrimaryVertices4D = unsortedOfflinePrimaryVertices.clone(
     TkClusParameters = DA2D_vectParameters,
     TrackTimesLabel = cms.InputTag("trackTimeValueMapProducer","generalTracksConfigurableFlatResolutionModel"),
@@ -78,28 +51,6 @@ offlinePrimaryVertices4DWithBS = offlinePrimaryVertices4D.clone(
     vertices = "unsortedOfflinePrimaryVertices4D:WithBS"
 )
 
-unsortedOfflinePrimaryVertices4DnoPID = unsortedOfflinePrimaryVertices4D.clone(
-    TrackTimesLabel = "trackExtenderWithMTD:generalTrackt0",
-    TrackTimeResosLabel = "trackExtenderWithMTD:generalTracksigmat0"
-)
-trackWithVertexRefSelectorBeforeSorting4DnoPID = trackWithVertexRefSelector.clone(
-    vertexTag = "unsortedOfflinePrimaryVertices4DnoPID",
-    ptMax = 9e99,
-    ptErrorCut = 9e99
-)
-trackRefsForJetsBeforeSorting4DnoPID = trackRefsForJets.clone(
-    src = "trackWithVertexRefSelectorBeforeSorting4DnoPID"
-)
-offlinePrimaryVertices4DnoPID = offlinePrimaryVertices4D.clone(
-    vertices = "unsortedOfflinePrimaryVertices4DnoPID",
-    particles = "trackRefsForJetsBeforeSorting4DnoPID",
-    trackTimeTag = "trackExtenderWithMTD:generalTrackt0",
-    trackTimeResoTag = "trackExtenderWithMTD:generalTracksigmat0"
-)
-offlinePrimaryVertices4DnoPIDWithBS=offlinePrimaryVertices4DnoPID.clone(
-    vertices = "unsortedOfflinePrimaryVertices4DnoPID:WithBS"
-)
-
 unsortedOfflinePrimaryVertices4DwithPID = unsortedOfflinePrimaryVertices4D.clone(
     TrackTimesLabel = "tofPID4DnoPID:t0safe",
     TrackTimeResosLabel = "tofPID4DnoPID:sigmat0safe"
@@ -127,11 +78,37 @@ from SimTracker.TrackAssociatorProducers.quickTrackAssociatorByHits_cfi import q
 from SimTracker.TrackAssociation.trackTimeValueMapProducer_cfi import trackTimeValueMapProducer
 from RecoMTD.TimingIDTools.tofPIDProducer_cfi import tofPIDProducer
 
-tofPID4DnoPID=tofPIDProducer.clone(vtxsSrc='unsortedOfflinePrimaryVertices4DnoPID')
+tofPID4DnoPID=tofPIDProducer.clone(vtxsSrc='unsortedOfflinePrimaryVertices')
 tofPID=tofPIDProducer.clone()
-tofPID3D=tofPIDProducer.clone(vtxsSrc='unsortedOfflinePrimaryVertices3Dt')
+tofPID3D=tofPIDProducer.clone(vtxsSrc='unsortedOfflinePrimaryVertices')
 
 from Configuration.Eras.Modifier_phase2_timing_layer_cff import phase2_timing_layer
 phase2_timing_layer.toModify(tofPID, vtxsSrc='unsortedOfflinePrimaryVertices4D', offVertexReassignment=True)
 phase2_timing_layer.toModify(tofPID3D, offVertexReassignment=True)
+phase2_timing_layer.toModify(unsortedOfflinePrimaryVertices, 
+    vertexCollections = cms.VPSet(
+        cms.PSet(
+            algorithm = cms.string('AdaptiveVertexFitter'),
+            chi2cutoff = cms.double(2.5),
+            label = cms.string(''),
+            maxDistanceToBeam = cms.double(1.0),
+            minNdof = cms.double(0.0),
+            useBeamConstraint = cms.bool(False),
+            vertexTimeParameters = cms.PSet(
+                algorithm = cms.string('fromTracksPID')
+            )
+        ),
+        cms.PSet(
+            algorithm = cms.string('AdaptiveVertexFitter'),
+            chi2cutoff = cms.double(2.5),
+            label = cms.string('WithBS'),
+            maxDistanceToBeam = cms.double(1.0),
+            minNdof = cms.double(2.0),
+            useBeamConstraint = cms.bool(True),
+            vertexTimeParameters = cms.PSet(
+                algorithm = cms.string('fromTracksPID')
+            )
+        )
+    )
+)
 
