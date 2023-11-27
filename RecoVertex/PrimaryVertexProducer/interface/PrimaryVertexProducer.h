@@ -106,6 +106,11 @@ private:
   edm::EDGetTokenT<reco::TrackCollection> trkToken;
   edm::EDGetTokenT<edm::ValueMap<float> > trkTimesToken;
   edm::EDGetTokenT<edm::ValueMap<float> > trkTimeResosToken;
+  edm::EDGetTokenT<edm::ValueMap<float> > trackMTDTimeQualityToken;
 
   bool useTransientTrackTime;
+  bool useMVASelection;
+  edm::ValueMap<float> trackMTDTimeQualities_;
+  edm::ValueMap<float> trackTimes_;
+  double minTrackTimeQuality;
 };

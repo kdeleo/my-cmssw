@@ -13,4 +13,3 @@ from Validation.MtdValidation.vertices4DValid_cfi import vertices4DValid
 mtdSimValid  = cms.Sequence(btlSimHitsValid  + etlSimHitsValid )
 mtdDigiValid = cms.Sequence(btlDigiHitsValid + etlDigiHitsValid)
 mtdRecoValid = cms.Sequence(btlLocalRecoValid  + etlLocalRecoValid + mtdTracksValid + vertices4DValid)
-
