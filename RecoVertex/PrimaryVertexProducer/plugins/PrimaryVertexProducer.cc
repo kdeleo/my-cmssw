@@ -21,6 +21,7 @@
 PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
     : theTTBToken(esConsumes(edm::ESInputTag("", "TransientTrackBuilder"))), theConfig(conf) {
   fVerbose = conf.getUntrackedParameter<bool>("verbose", false);
+  useMVASelection = conf.getParameter<bool>("useMVACut");
 
   trkToken = consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("TrackLabel"));
   bsToken = consumes<reco::BeamSpot>(conf.getParameter<edm::InputTag>("beamSpotLabel"));
@@ -34,7 +35,6 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
   } else if (trackSelectionAlgorithm == "filterWithThreshold") {
     theTrackFilter = new HITrackFilterForPVFinding(conf.getParameter<edm::ParameterSet>("TkFilterParameters"));
   } else {
-    std::cout << "PrimaryVertexProducer: unknown track selection algorithm: " + trackSelectionAlgorithm << std::endl;
     throw VertexException("PrimaryVertexProducer: unknown track selection algorithm: " + trackSelectionAlgorithm);
   }
 
@@ -52,13 +52,15 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
         conf.getParameter<edm::ParameterSet>("TkClusParameters").getParameter<edm::ParameterSet>("TkDAClusParameters"));
     useTransientTrackTime = true;
   } else {
-    std::cout << "PrimaryVertexProducer: unknown clustering algorithm: " + clusteringAlgorithm << std::endl;
     throw VertexException("PrimaryVertexProducer: unknown clustering algorithm: " + clusteringAlgorithm);
   }
 
   if (useTransientTrackTime) {
     trkTimesToken = consumes<edm::ValueMap<float> >(conf.getParameter<edm::InputTag>("TrackTimesLabel"));
     trkTimeResosToken = consumes<edm::ValueMap<float> >(conf.getParameter<edm::InputTag>("TrackTimeResosLabel"));
+    trackMTDTimeQualityToken =
+        consumes<edm::ValueMap<float> >(conf.getParameter<edm::InputTag>("trackMTDTimeQualityVMapTag"));
+    minTrackTimeQuality = conf.getParameter<double>("minTrackTimeQuality");
   }
 
   // select and configure the vertex fitters
@@ -92,7 +94,6 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
       } else if (fitterAlgorithm == "WeightedMeanFitter") {
         algorithm.pv_fitter = new WeightedMeanPrimaryVertexEstimator();
       } else {
-        std::cout << "PrimaryVertexProducer: unknown algorithm: " + fitterAlgorithm << std::endl;
         throw VertexException("PrimaryVertexProducer: unknown algorithm: " + fitterAlgorithm);
       }
       algorithm.minNdof = algoconf->getParameter<double>("minNdof");
@@ -105,15 +106,17 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
       if (algoconf->exists("vertexTimeParameters")) {
         const auto& pv_time_conf = algoconf->getParameter<edm::ParameterSet>("vertexTimeParameters");
         const std::string vertexTimeAlgorithm = pv_time_conf.getParameter<std::string>("algorithm");
-        std::cout << " vertexTimeParamers found  " << algorithm.label << " : [" << vertexTimeAlgorithm << "]"
-                  << std::endl;
+        if (fVerbose) {
+          std::cout << " vertexTimeParamers found  " << algorithm.label << " : [" << vertexTimeAlgorithm << "]"
+                    << std::endl;
+        }
         edm::ConsumesCollector&& collector = consumesCollector();
         if (vertexTimeAlgorithm.empty()) {
           algorithm.pv_time_estimator = nullptr;
         } else if (vertexTimeAlgorithm == "legacy4D") {
           useTransientTrackTime = true;
           algorithm.pv_time_estimator =
-              new VertexTimeAlgorithmLegacy4D(algoconf->getParameter<edm::ParameterSet>("legacy4D"), collector);
+              new VertexTimeAlgorithmLegacy4D(pv_time_conf.getParameter<edm::ParameterSet>("legacy4D"), collector);
           algorithm.is_4D = true;
         } else if (vertexTimeAlgorithm == "fromTracksPID") {
           algorithm.pv_time_estimator = new VertexTimeAlgorithmFromTracksPID(
@@ -123,7 +126,7 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
           edm::LogWarning("MisConfiguration") << "unknown vertexTimeParameters.algorithm" << vertexTimeAlgorithm;
         }
       } else {
-        std::cout << " no vertexTimeParamers found for " << algorithm.label << std::endl;
+        edm::LogInfo("MisConfiguration") << " no vertexTimeParamers found for " << algorithm.label;
       }
       algorithms.push_back(algorithm);
 
@@ -139,7 +142,6 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
   fRecoveryIteration = conf.getParameter<bool>("isRecoveryIteration");
   if (fRecoveryIteration) {
     if (algorithms.empty()) {
-      std::cout << "PrimaryVertexProducer: No algorithm specified. " << std::endl;
       throw VertexException("PrimaryVertexProducer: No algorithm specified. ");
     } else if (algorithms.size() > 1) {
       throw VertexException(
@@ -216,11 +218,28 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
   std::vector<reco::TransientTrack> t_tks;
 
   if (useTransientTrackTime) {
-    edm::Handle<edm::ValueMap<float> > trackTimesH;
     edm::Handle<edm::ValueMap<float> > trackTimeResosH;
-    iEvent.getByToken(trkTimesToken, trackTimesH);
     iEvent.getByToken(trkTimeResosToken, trackTimeResosH);
-    t_tks = (*theB).build(tks, beamSpot, *(trackTimesH.product()), *(trackTimeResosH.product()));
+
+    if (useMVASelection) {
+      trackMTDTimeQualities_ = iEvent.get(trackMTDTimeQualityToken);
+      edm::Handle<edm::ValueMap<float> > MVAQualH;
+      iEvent.getByToken(trackMTDTimeQualityToken, MVAQualH);
+
+      trackTimes_ = iEvent.get(trkTimesToken);
+      for (unsigned int i = 0; i < (*tks).size(); i++) {
+        const reco::TrackRef ref(tks, i);
+        auto const trkTimeQuality = trackMTDTimeQualities_[ref];
+        if (trkTimeQuality < minTrackTimeQuality) {
+          trackTimes_[ref] = std::numeric_limits<double>::max();
+        }
+      }
+      t_tks = (*theB).build(tks, beamSpot, trackTimes_, *(trackTimeResosH.product()));
+    } else {
+      edm::Handle<edm::ValueMap<float> > trackTimesH;
+      iEvent.getByToken(trkTimesToken, trackTimesH);
+      t_tks = (*theB).build(tks, beamSpot, *(trackTimesH.product()), *(trackTimeResosH.product()));
+    }
   } else {
     t_tks = (*theB).build(tks, beamSpot);
   }
@@ -259,11 +278,11 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
 
     // select and convert transient vertices to (reco) vertices
     for (std::vector<TransientVertex>::const_iterator iv = pvs.begin(); iv != pvs.end(); iv++) {
-      if(iv->isValid() && (iv->degreesOfFreedom() >= algorithm->minNdof)){
-	reco::Vertex v = *iv;
-	if (!validBS || ((*(algorithm->vertexSelector))(v, beamVertexState))){
-	  vColl.push_back(v);
-	}
+      if (iv->isValid() && (iv->degreesOfFreedom() >= algorithm->minNdof)) {
+        reco::Vertex v = *iv;
+        if (!validBS || ((*(algorithm->vertexSelector))(v, beamVertexState))) {
+          vColl.push_back(v);
+        }
       }
     }
 
@@ -391,8 +410,9 @@ void PrimaryVertexProducer::fillDescriptions(edm::ConfigurationDescriptions& des
   }
   desc.add<edm::InputTag>("beamSpotLabel", edm::InputTag("offlineBeamSpot"));
   desc.add<edm::InputTag>("TrackLabel", edm::InputTag("generalTracks"));
-  desc.add<edm::InputTag>("TrackTimeResosLabel", edm::InputTag("dummy_default"));  // 4D only
-  desc.add<edm::InputTag>("TrackTimesLabel", edm::InputTag("dummy_default"));      // 4D only
+  desc.add<edm::InputTag>("TrackTimeResosLabel", edm::InputTag("dummy_default"));                         // 4D only
+  desc.add<edm::InputTag>("TrackTimesLabel", edm::InputTag("dummy_default"));                             // 4D only
+  desc.add<edm::InputTag>("trackMTDTimeQualityVMapTag", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"));  // 4D only
 
   {
     edm::ParameterSetDescription psd0;
@@ -411,6 +431,8 @@ void PrimaryVertexProducer::fillDescriptions(edm::ConfigurationDescriptions& des
 
   desc.add<bool>("isRecoveryIteration", false);
   desc.add<edm::InputTag>("recoveryVtxCollection", {""});
+  desc.add<bool>("useMVACut", false);
+  desc.add<double>("minTrackTimeQuality", 0.8);
 
   descriptions.add("primaryVertexProducer", desc);
 }
