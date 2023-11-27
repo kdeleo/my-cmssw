@@ -60,7 +60,7 @@ private:
   double probProton_;
   double minTrackTimeQuality_;
   bool MVASel_;
-  bool offVertexReassignment_;
+  bool vertexReassignment_;
 };
 
 TOFPIDProducer::TOFPIDProducer(const ParameterSet& iConfig)
@@ -84,7 +84,7 @@ TOFPIDProducer::TOFPIDProducer(const ParameterSet& iConfig)
       probProton_(iConfig.getParameter<double>("probProton")),
       minTrackTimeQuality_(iConfig.getParameter<double>("minTrackTimeQuality")),
       MVASel_(iConfig.getParameter<bool>("MVASel")),
-      offVertexReassignment_(iConfig.getParameter<bool>("offVertexReassignment")) {
+      vertexReassignment_(iConfig.getParameter<bool>("vertexReassignment")) {
   produces<edm::ValueMap<float>>(t0Name);
   produces<edm::ValueMap<float>>(sigmat0Name);
   produces<edm::ValueMap<float>>(t0safeName);
@@ -129,7 +129,7 @@ void TOFPIDProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptio
   desc.add<double>("probProton", 1.)->setComment("A priori probability for protons");
   desc.add<double>("minTrackTimeQuality", 0.8)->setComment("Minimum MVA Quality selection on tracks");
   desc.add<bool>("MVASel", false)->setComment("Use MVA Quality selection");
-  desc.add<bool>("offVertexReassignment", false)->setComment("Switch off track-vertex reassignment");
+  desc.add<bool>("vertexReassignment", true)->setComment("Track-vertex reassignment");
 
   descriptions.add("tofPIDProducer", desc);
 }
@@ -268,7 +268,7 @@ void TOFPIDProducer::produce(edm::Event& ev, const edm::EventSetup& es) {
         //loop through vertices and check for better matches
         for (unsigned int ivtx = 0; ivtx < vtxs.size(); ++ivtx) {
           const reco::Vertex& vtx = vtxs[ivtx];
-          if (offVertexReassignment_) {
+          if (!vertexReassignment_) {
             if (ivtx != (unsigned int)vtxidx)
               continue;
           }
