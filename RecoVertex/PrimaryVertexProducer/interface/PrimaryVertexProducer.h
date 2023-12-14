@@ -1,4 +1,3 @@
-
 // -*- C++ -*-
 //
 // Package:    PrimaryVertexProducer
@@ -45,7 +44,6 @@
 #include "RecoVertex/PrimaryVertexProducer/interface/PrimaryVertexFitterBase.h"
 #include "RecoVertex/PrimaryVertexProducer/interface/SequentialPrimaryVertexFitterAdapter.h"
 #include "RecoVertex/PrimaryVertexProducer/interface/AdaptiveChisquarePrimaryVertexFitter.h"
-#include "RecoVertex/PrimaryVertexProducer/interface/MultiPrimaryVertexFitter.h"
 #include "RecoVertex/PrimaryVertexProducer/interface/WeightedMeanFitter.h"
 
 #include "RecoVertex/VertexPrimitives/interface/VertexException.h"
@@ -88,13 +86,10 @@ private:
     std::string label;
     bool useBeamConstraint;
     double minNdof;
-    bool is_4D;
     VertexTimeAlgorithmBase* pv_time_estimator;
   };
 
   std::vector<algo> algorithms;
-
-  //VertexTimeAlgorithmBase * theVertexTimeAlgorithm;
 
   edm::ParameterSet theConfig;
   bool fVerbose;

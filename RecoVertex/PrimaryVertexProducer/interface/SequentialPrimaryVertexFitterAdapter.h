@@ -7,7 +7,6 @@
 
 */
 
-//#include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "RecoVertex/VertexPrimitives/interface/TransientVertex.h"
 #include "TrackingTools/TransientTrack/interface/TransientTrack.h"
 #include "RecoVertex/PrimaryVertexProducer/interface/PrimaryVertexFitterBase.h"

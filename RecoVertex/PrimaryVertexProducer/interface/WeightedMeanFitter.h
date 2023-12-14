@@ -160,7 +160,9 @@ namespace WeightedMeanFitter {
       dist += std::pow(p.first.z() - z, 2) / (std::pow(wz, 2) + err(2, 2));
       chi2 += dist;
     }
-    TransientVertex v(GlobalPoint(x, y, z), err, iclus, chi2, (int)ndof_x);
+    float ndof =
+        ndof_x > 1 ? (2 * ndof_x - 3) : 0.00001;  // ndof_x is actually the number of tracks with non-zero weight
+    TransientVertex v(GlobalPoint(x, y, z), err, iclus, chi2, ndof);
     return v;
   }
 
@@ -224,7 +226,7 @@ namespace WeightedMeanFitter {
     err_y = 1. / s_wy;
     err_z = 1. / s_wz;
 
-    while ((niter++) < 2) {
+    while ((niter++) < 200) {
       old_x = x;
       old_y = y;
       old_z = z;

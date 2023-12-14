@@ -19,11 +19,8 @@ public:
   bool vertexTime(float& vtxTime, float& vtxTimeError, TransientVertex const& vtx) const override;
 
 protected:
-  float trackTime(float const mass, float const mtdTime, float const mtdPathLength, float const mtdMomentum) const;
-
   struct TrackInfo {
     double trkWeight;
-    double trkTime;
     double trkTimeError;
     double trkTimeHyp[3];
   };
@@ -31,14 +28,12 @@ protected:
   edm::EDGetTokenT<edm::ValueMap<float>> const trackMTDTimeToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> const trackMTDTimeErrorToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> const trackMTDTimeQualityToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> const trackMTDMomentumToken_;
-  edm::EDGetTokenT<edm::ValueMap<float>> const trackMTDPathLengthToken_;
+  edm::EDGetTokenT<edm::ValueMap<float>> const trackMTDTofPiToken_;
+  edm::EDGetTokenT<edm::ValueMap<float>> const trackMTDTofKToken_;
+  edm::EDGetTokenT<edm::ValueMap<float>> const trackMTDTofPToken_;
 
   double const minTrackVtxWeight_;
   double const minTrackTimeQuality_;
-  double const massPion_;
-  double const massKaon_;
-  double const massProton_;
   double const probPion_;
   double const probKaon_;
   double const probProton_;
@@ -48,8 +43,9 @@ protected:
   edm::ValueMap<float> trackMTDTimes_;
   edm::ValueMap<float> trackMTDTimeErrors_;
   edm::ValueMap<float> trackMTDTimeQualities_;
-  edm::ValueMap<float> trackMTDMomenta_;
-  edm::ValueMap<float> trackMTDPathLengths_;
+  edm::ValueMap<float> trackMTDTofPi_;
+  edm::ValueMap<float> trackMTDTofK_;
+  edm::ValueMap<float> trackMTDTofP_;
 };
 
 #endif
