@@ -46,6 +46,12 @@ DAClusterizerInZ_vect::DAClusterizerInZ_vect(const edm::ParameterSet& conf) {
   runInBlocks_ = conf.getParameter<bool>("runInBlocks");
   block_size_ = conf.getParameter<unsigned int>("block_size");
   overlap_frac_ = conf.getParameter<double>("overlap_frac");
+  if (overlap_frac_ < 0) {
+    overlap_frac_ = -overlap_frac_;
+    shabang_ = true;
+  } else {
+    shabang_ = false;
+  }
 
 #ifdef DEBUG
   std::cout << "DAClusterizerinZ_vect: mintrkweight = " << mintrkweight_ << std::endl;
@@ -216,7 +222,6 @@ DAClusterizerInZ_vect::track_t DAClusterizerInZ_vect::fill(const vector<reco::Tr
     std::cout << "Track count (Z) " << tks.getSize() << std::endl;
   }
 #endif
-
   return tks;
 }
 
@@ -582,7 +587,7 @@ bool DAClusterizerInZ_vect::purge(vertex_t& y, track_t& tks, double& rho0, const
     assert(k0 < y.getSize());
     if (DEBUGLEVEL > 1) {
       std::cout << "eliminating prototype at " << std::setw(10) << std::setprecision(4) << y.zvtx[k0]
-                << " with sump=" << sumpmin << "  rho*nt =" << y.rho[k0] * nt << endl;
+                << " with sump=" << sumpmin << "  rho*nt =" << y.rho[k0] * nt << " pnUnique=" << pnUnique[k0] << endl;
     }
 #endif
 
@@ -771,7 +776,6 @@ vector<TransientVertex> DAClusterizerInZ_vect::vertices_no_blocks(const vector<r
   track_t&& tks = fill(tracks);
   tks.extractRaw();
 
-  //unsigned int nt = tks.getSize(); FIXME unused variable
   double rho0 = 0.0;  // start with no outlier rejection
 
   vector<TransientVertex> clusters;
@@ -923,7 +927,7 @@ vector<TransientVertex> DAClusterizerInZ_vect::vertices_no_blocks(const vector<r
     dump(beta, y, tks, 2, rho0);
 #endif
 
-  // assign tracks and vill into transient vertices
+  // assign tracks and fill into transient vertices
   return fill_vertices(beta, rho0, tks, y);
 }
 
@@ -1127,6 +1131,67 @@ vector<TransientVertex> DAClusterizerInZ_vect::vertices_in_blocks(const vector<r
             vertices_tot.end(),
             [](const pair<float, float>& a, const pair<float, float>& b) -> bool { return a.first < b.first; });
 
+  // normalize rhos
+  if (shabang_) {
+    double rho_sum = 0;
+    for (auto k = 0U; k < vertices_tot.size(); k++) {
+      rho_sum += vertices_tot[k].second;
+    }
+    // dump
+#ifdef DEBUG
+    if (DEBUGLEVEL > 1) {
+      std::cout << "vertices_in_blocks nv= " << vertices_tot.size() << "before xmerging  rho_sum = " << rho_sum
+                << std::endl;
+      for (auto k = 0U; k < vertices_tot.size(); k++) {
+        std::cout << std::setw(5) << k << std::setprecision(4) << std::fixed << vertices_tot[k].first << "  "
+                  << std::setprecision(4) << std::fixed << vertices_tot[k].second << std::endl;
+      }
+    }
+#endif
+    if (rho_sum > 0) {
+      for (auto k = 0U; k < vertices_tot.size(); k++) {
+        vertices_tot[k].second /= rho_sum;
+      }
+    }
+    double dz = 1e-4;
+    while (dz < 10e-4) {
+      unsigned int k = 0;
+      while (k < vertices_tot.size() - 1) {
+        if ((vertices_tot[k + 1].first - vertices_tot[k].first) < dz) {
+          float s = vertices_tot[k + 1].second + vertices_tot[k].second;
+#ifdef DEBUG
+          if (DEBUGLEVEL > 1) {
+            std::cout << " xmerging  " << std::setw(5) << k << " " << std::fixed << std::setprecision(4)
+                      << vertices_tot[k].first << " and " << vertices_tot[k + 1].first << " //   s=" << s
+                      << "   nv=" << vertices_tot.size() << std::endl;
+          }
+#endif
+          if (s > 0) {
+            vertices_tot[k].first = (vertices_tot[k + 1].first * vertices_tot[k + 1].second +
+                                     vertices_tot[k].first * vertices_tot[k].second) /
+                                    s;
+            vertices_tot[k].second = s;
+          } else {
+            vertices_tot[k].first = 0.5 * (vertices_tot[k + 1].first + vertices_tot[k].first);
+          }
+          vertices_tot.erase(vertices_tot.begin() + k + 1);
+        } else {
+          k += 1;
+        }
+      }
+      dz *= 2;
+    }
+#ifdef DEBUG
+    if (DEBUGLEVEL > 1) {
+      std::cout << "vertices_in_blocks nv= " << vertices_tot.size() << "after xmerging" << std::endl;
+      for (auto k = 0U; k < vertices_tot.size(); k++) {
+        std::cout << std::setw(5) << k << std::setprecision(4) << std::fixed << vertices_tot[k].first << "  "
+                  << std::setprecision(4) << std::fixed << vertices_tot[k].second << std::endl;
+      }
+    }
+#endif
+  }
+
   // reassign tracks to vertices
   track_t&& tracks_tot = fill(tracks);
   const unsigned int nv = vertices_tot.size();
@@ -1194,8 +1259,9 @@ vector<TransientVertex> DAClusterizerInZ_vect::vertices_in_blocks(const vector<r
         iMax = k;
       }
     }
-    if (iMax < vtx_track_indices.size())
+    if (iMax < vtx_track_indices.size()) {
       vtx_track_indices[iMax].push_back(i);
+    }
   }
 #ifdef DEBUG
   for (auto itrack = 0U; itrack < nt; ++itrack) {
@@ -1219,17 +1285,20 @@ vector<TransientVertex> DAClusterizerInZ_vect::vertices_in_blocks(const vector<r
       for (auto i : vtx_track_indices[k]) {
         vertexTracks.push_back(*(tracks_tot.tt[i]));
 #ifdef DEBUG
-        std::cout << y.zvtx[k] << "," << (*tks.tt[i]).stateAtBeamLine().trackStateAtPCA().position().z()
-                  << std::endl;  // do you mean vertices_tot[k].first instead of y.zvtx[k] ?
+        std::cout << vertices_tot[k].first << ","
+                  << (*(tracks_tot.tt[i])).stateAtBeamLine().trackStateAtPCA().position().z() << std::endl;
 #endif
       }
     }
 
-    // implement what clusterize() did before : merge left-to-right if distance <2*vertexSize_
+    // implement what clusterize() did before : merge left-to-right if distance < 2 * vertexSize_
     if ((k + 1 == nv) || (abs(vertices_tot[k + 1].first - vertices_tot[k].first) > (2 * vertexSize_))) {
-      GlobalPoint pos(0, 0, vertices_tot[k].first);  // only usable with subsequent fit
-      TransientVertex v(pos, dummyError, vertexTracks, 0);
-      clusters.push_back(v);
+      // close a cluster
+      if (vertexTracks.size() > 1) {
+        GlobalPoint pos(0, 0, vertices_tot[k].first);  // only usable with subsequent fit
+        TransientVertex v(pos, dummyError, vertexTracks, 0);
+        clusters.push_back(v);
+      }
       vertexTracks.clear();
     }
   }
@@ -1269,23 +1338,30 @@ vector<TransientVertex> DAClusterizerInZ_vect::fill_vertices(double beta, double
     }
     const double invZ = tks.sum_Z[i] > 1e-100 ? 1. / tks.sum_Z[i] : 0.0;
 
+    double pmax = -1;
+    unsigned int k_pmax = 0;
     for (auto k = kmin; k < kmax; k++) {
       double p = y.rho[k] * y.exp[k] * invZ;
-      if (p > mintrkweight_) {
-        // assign  track i -> vertex k (hard, mintrkweight should be >= 0.5 here
-        vtx_track_indices[k].push_back(i);
-        vtx_track_weights[k].push_back(p);
-        break;
+      if (p > pmax) {
+        pmax = p;
+        k_pmax = k;
       }
+    }
+
+    if (pmax > mintrkweight_) {
+      // assign to the cluster with the highest assignment weight, if it is at least mintrkweight_
+      vtx_track_indices[k_pmax].push_back(i);
+      vtx_track_weights[k_pmax].push_back(pmax);
     }
   }
 
   // fill transient vertices
+  // the position is normally not used, probably not optimal when Tstop <> 2, anyway
   vector<TransientVertex> clusters;
   for (unsigned int k = 0; k < nv; k++) {
     double sump = 0;
     double sumw = 0;
-    double sumwp = 0;
+    double sumwp = 0, sumwz = 0;
     if (!vtx_track_indices[k].empty()) {
       vector<reco::TransientTrack> vertexTracks;
       TransientVertex::TransientTrackToFloatMap trkWeightMap;
@@ -1298,11 +1374,13 @@ vector<TransientVertex> DAClusterizerInZ_vect::fill_vertices(double beta, double
         sump += p;
         sumw += w;
         sumwp += w * p;
+        sumwz += w * tks.zpca[i];
         j++;
       }
       float zerror_squared = 1.;  //
       if ((sumw > 0) && (sumwp > 0)) {
         zerror_squared = sumwp / (sumw * sumw);
+        y.zvtx[k] = sumwz / sumw;
       }
       const auto& bs = vertexTracks[0].stateAtBeamLine().beamSpot();
       GlobalPoint pos(bs.x(y.zvtx[k]), bs.y(y.zvtx[k]), y.zvtx[k]);

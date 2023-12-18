@@ -1,5 +1,3 @@
-
-
 #include "RecoVertex/PrimaryVertexProducer/interface/PrimaryVertexProducer.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
@@ -64,78 +62,67 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
   }
 
   // select and configure the vertex fitters
-  if (conf.exists("vertexCollections")) {
-    std::vector<edm::ParameterSet> vertexCollections =
-        conf.getParameter<std::vector<edm::ParameterSet> >("vertexCollections");
+  std::vector<edm::ParameterSet> vertexCollections =
+      conf.getParameter<std::vector<edm::ParameterSet> >("vertexCollections");
 
-    for (std::vector<edm::ParameterSet>::const_iterator algoconf = vertexCollections.begin();
-         algoconf != vertexCollections.end();
-         algoconf++) {
-      algo algorithm;
+  for (std::vector<edm::ParameterSet>::const_iterator algoconf = vertexCollections.begin();
+       algoconf != vertexCollections.end();
+       algoconf++) {
+    algo algorithm;
 
-      algorithm.label = algoconf->getParameter<std::string>("label");
-      algorithm.is_4D = false;  // override later when appropriate
+    algorithm.label = algoconf->getParameter<std::string>("label");
 
-      // configure the fitter and selector
-      std::string fitterAlgorithm = algoconf->getParameter<std::string>("algorithm");
-      if (fitterAlgorithm == "KalmanVertexFitter") {
-        algorithm.pv_fitter = new SequentialPrimaryVertexFitterAdapter(new KalmanVertexFitter());
-      } else if (fitterAlgorithm == "AdaptiveVertexFitter") {
-        auto fitter = new AdaptiveVertexFitter(GeometricAnnealing(algoconf->getParameter<double>("chi2cutoff")));
-        algorithm.pv_fitter = new SequentialPrimaryVertexFitterAdapter(fitter);
-      } else if (fitterAlgorithm.empty()) {
-        algorithm.pv_fitter = nullptr;
-      } else if (fitterAlgorithm == "AdaptiveChisquareVertexFitter") {
-        algorithm.pv_fitter =
-            new AdaptiveChisquarePrimaryVertexFitter(algoconf->getParameter<double>("chi2cutoff"), 0.);
-      } else if (fitterAlgorithm == "MultiPrimaryVertexFitter") {
-        algorithm.pv_fitter = new MultiPrimaryVertexFitter(algoconf->getParameter<double>("chi2cutoff"),
-                                                           algoconf->getParameter<double>("mintrkweight"));
-      } else if (fitterAlgorithm == "WeightedMeanFitter") {
-        algorithm.pv_fitter = new WeightedMeanPrimaryVertexEstimator();
-      } else {
-        throw VertexException("PrimaryVertexProducer: unknown algorithm: " + fitterAlgorithm);
-      }
-      algorithm.minNdof = algoconf->getParameter<double>("minNdof");
-      algorithm.useBeamConstraint = algoconf->getParameter<bool>("useBeamConstraint");
-      algorithm.vertexSelector =
-          new VertexCompatibleWithBeam(VertexDistanceXY(), algoconf->getParameter<double>("maxDistanceToBeam"));
-
-      // configure separate vertex time reconstruction if applicable
-      // note that the vertex time could, in principle, also come from the clusterizer or the vertex fit
-      if (algoconf->exists("vertexTimeParameters")) {
-        const auto& pv_time_conf = algoconf->getParameter<edm::ParameterSet>("vertexTimeParameters");
-        const std::string vertexTimeAlgorithm = pv_time_conf.getParameter<std::string>("algorithm");
-        if (fVerbose) {
-          std::cout << " vertexTimeParamers found  " << algorithm.label << " : [" << vertexTimeAlgorithm << "]"
-                    << std::endl;
-        }
-        edm::ConsumesCollector&& collector = consumesCollector();
-        if (vertexTimeAlgorithm.empty()) {
-          algorithm.pv_time_estimator = nullptr;
-        } else if (vertexTimeAlgorithm == "legacy4D") {
-          useTransientTrackTime = true;
-          algorithm.pv_time_estimator =
-              new VertexTimeAlgorithmLegacy4D(pv_time_conf.getParameter<edm::ParameterSet>("legacy4D"), collector);
-          algorithm.is_4D = true;
-        } else if (vertexTimeAlgorithm == "fromTracksPID") {
-          algorithm.pv_time_estimator = new VertexTimeAlgorithmFromTracksPID(
-              pv_time_conf.getParameter<edm::ParameterSet>("fromTracksPID"), collector);
-          algorithm.is_4D = true;
-        } else {
-          edm::LogWarning("MisConfiguration") << "unknown vertexTimeParameters.algorithm" << vertexTimeAlgorithm;
-        }
-      } else {
-        edm::LogInfo("MisConfiguration") << " no vertexTimeParamers found for " << algorithm.label;
-      }
-      algorithms.push_back(algorithm);
-
-      produces<reco::VertexCollection>(algorithm.label);
+    // configure the fitter and selector
+    std::string fitterAlgorithm = algoconf->getParameter<std::string>("algorithm");
+    if (fitterAlgorithm == "KalmanVertexFitter") {
+      algorithm.pv_fitter = new SequentialPrimaryVertexFitterAdapter(new KalmanVertexFitter());
+    } else if (fitterAlgorithm == "AdaptiveVertexFitter") {
+      auto fitter = new AdaptiveVertexFitter(GeometricAnnealing(algoconf->getParameter<double>("chi2cutoff")));
+      algorithm.pv_fitter = new SequentialPrimaryVertexFitterAdapter(fitter);
+    } else if (fitterAlgorithm.empty()) {
+      algorithm.pv_fitter = nullptr;
+    } else if (fitterAlgorithm == "AdaptiveChisquareVertexFitter") {
+      algorithm.pv_fitter = new AdaptiveChisquarePrimaryVertexFitter(algoconf->getParameter<double>("chi2cutoff"),
+                                                                     algoconf->getParameter<double>("zcutoff"),
+                                                                     algoconf->getParameter<double>("mintrkweight"),
+                                                                     false);
+    } else if (fitterAlgorithm == "MultiPrimaryVertexFitter") {
+      algorithm.pv_fitter = new AdaptiveChisquarePrimaryVertexFitter(algoconf->getParameter<double>("chi2cutoff"),
+                                                                     algoconf->getParameter<double>("zcutoff"),
+                                                                     algoconf->getParameter<double>("mintrkweight"),
+                                                                     true);
+    } else if (fitterAlgorithm == "WeightedMeanFitter") {
+      algorithm.pv_fitter = new WeightedMeanPrimaryVertexEstimator();
+    } else {
+      throw VertexException("PrimaryVertexProducer: unknown algorithm: " + fitterAlgorithm);
     }
+    algorithm.minNdof = algoconf->getParameter<double>("minNdof");
+    algorithm.useBeamConstraint = algoconf->getParameter<bool>("useBeamConstraint");
+    algorithm.vertexSelector =
+        new VertexCompatibleWithBeam(VertexDistanceXY(), algoconf->getParameter<double>("maxDistanceToBeam"));
 
-  } else {  // is this code really still needed?
-    edm::LogWarning("MisConfiguration")
-        << "this module's configuration has changed, please update to have a vertexCollections=cms.VPSet parameter.";
+    // configure separate vertex time reconstruction if applicable
+    // note that the vertex time could, in principle, also come from the clusterizer or the vertex fit
+
+    const auto& pv_time_conf = algoconf->getParameter<edm::ParameterSet>("vertexTimeParameters");
+    const std::string vertexTimeAlgorithm = pv_time_conf.getParameter<std::string>("algorithm");
+    edm::ConsumesCollector&& collector = consumesCollector();
+
+    if (vertexTimeAlgorithm.empty()) {
+      algorithm.pv_time_estimator = nullptr;
+    } else if (vertexTimeAlgorithm == "legacy4D") {
+      useTransientTrackTime = true;
+      algorithm.pv_time_estimator =
+          new VertexTimeAlgorithmLegacy4D(pv_time_conf.getParameter<edm::ParameterSet>("legacy4D"), collector);
+    } else if (vertexTimeAlgorithm == "fromTracksPID") {
+      algorithm.pv_time_estimator = new VertexTimeAlgorithmFromTracksPID(
+          pv_time_conf.getParameter<edm::ParameterSet>("fromTracksPID"), collector);
+    } else {
+      edm::LogWarning("MisConfiguration") << "unknown vertexTimeParameters.algorithm" << vertexTimeAlgorithm;
+    }
+    algorithms.push_back(algorithm);
+
+    produces<reco::VertexCollection>(algorithm.label);
   }
 
   //check if this is a recovery iteration
@@ -251,8 +238,8 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
   std::vector<TransientVertex>&& clusters = theTrackClusterizer->vertices(seltks);
 
   if (fVerbose) {
-    std::cout << " clustering returned  " << clusters.size() << " clusters  from " << seltks.size()
-              << " selected tracks" << std::endl;
+    edm::LogPrint("PrimaryVertexProducer")
+        << "Clustering returned " << clusters.size() << " clusters from " << seltks.size() << " selected tracks";
   }
 
   // vertex fits
@@ -287,16 +274,19 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
     }
 
     if (fVerbose) {
-      std::cout << "PrimaryVertexProducer " << algorithm->label << "  candidates =" << pvs.size() << std::endl;
+      edm::LogPrint("PrimaryVertexProducer") << "PrimaryVertexProducer \"" << algorithm->label << "\" contains "
+                                             << pvs.size() << " reco::Vertex candidates";
     }
 
-    if (clusters.size() > 2 && clusters.size() > 2 * pvs.size())
+    if (clusters.size() > 2 && clusters.size() > 2 * pvs.size()) {
       edm::LogWarning("PrimaryVertexProducer")
-          << "more than half of candidate vertices lost " << pvs.size() << ' ' << clusters.size();
+          << "More than 50% of candidate vertices lost (" << pvs.size() << " out of " << clusters.size() << ")";
+    }
 
-    if (pvs.empty() && seltks.size() > 5)
+    if (pvs.empty() && seltks.size() > 5) {
       edm::LogWarning("PrimaryVertexProducer")
-          << "no vertex found with " << seltks.size() << " tracks and " << clusters.size() << " vertex-candidates";
+          << "No vertex found with " << seltks.size() << " tracks and " << clusters.size() << " vertex candidates";
+    }
 
     if (vColl.empty()) {
       GlobalError bse(beamSpot.rotatedCovariance3D());
@@ -306,35 +296,31 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
         we(1, 1) = 10000;
         we(2, 2) = 10000;
         vColl.push_back(reco::Vertex(beamSpot.position(), we, 0., 0., 0));
-        if (fVerbose) {
-          std::cout << "RecoVertex/PrimaryVertexProducer: "
-                    << "Beamspot with invalid errors " << bse.matrix() << std::endl;
-          std::cout << "Will put Vertex derived from dummy-fake BeamSpot into Event.\n";
-        }
+        edm::LogWarning("PrimaryVertexProducer") << "Zero recostructed vertices, will put reco::Vertex derived from "
+                                                    "dummy/fake BeamSpot into Event, BeamSpot has invalid errors: "
+                                                 << bse.matrix();
       } else {
         vColl.push_back(reco::Vertex(beamSpot.position(), beamSpot.rotatedCovariance3D(), 0., 0., 0));
-        if (fVerbose) {
-          std::cout << "RecoVertex/PrimaryVertexProducer: "
-                    << " will put Vertex derived from BeamSpot into Event.\n";
-        }
+        edm::LogWarning("PrimaryVertexProducer")
+            << "Zero recostructed vertices, will put reco::Vertex derived from BeamSpot into Event.";
       }
     }
 
     if (fVerbose) {
       int ivtx = 0;
       for (reco::VertexCollection::const_iterator v = vColl.begin(); v != vColl.end(); ++v) {
-        std::cout << "recvtx " << std::setw(3) << std::fixed << ivtx++ << " #trk " << std::setw(3) << v->tracksSize()
-                  << " chi2 " << std::setw(5) << std::setprecision(1) << v->chi2() << " ndof " << std::setw(5)
-                  << std::setprecision(1) << v->ndof() << " x " << std::setw(7) << std::setprecision(4)
-                  << v->position().x() << " dx " << std::setw(6) << std::setprecision(4) << v->xError() << " y "
-                  << std::setw(7) << std::setprecision(4) << v->position().y() << " dy " << std::setw(6)
-                  << std::setprecision(4) << v->yError() << " z " << std::setw(8) << std::setprecision(4)
-                  << v->position().z() << " dz " << std::setw(6) << std::setprecision(4) << v->zError();
-        if (algorithm->is_4D) {
-          std::cout << " t " << std::setw(6) << std::setprecision(3) << v->t() << " dt " << std::setw(6)
-                    << std::setprecision(3) << v->tError();
+        edm::LogPrint("PrimaryVertexProducer")
+            << "recvtx " << std::setw(3) << std::fixed << ivtx++ << " #trk " << std::setw(3) << v->tracksSize()
+            << " chi2 " << std::setw(5) << std::setprecision(1) << v->chi2() << " ndof " << std::setw(5)
+            << std::setprecision(1) << v->ndof() << " x " << std::setw(7) << std::setprecision(4) << v->position().x()
+            << " dx " << std::setw(6) << std::setprecision(4) << v->xError() << " y " << std::setw(7)
+            << std::setprecision(4) << v->position().y() << " dy " << std::setw(6) << std::setprecision(4)
+            << v->yError() << " z " << std::setw(8) << std::setprecision(4) << v->position().z() << " dz "
+            << std::setw(6) << std::setprecision(4) << v->zError();
+        if (v->tError() > 0) {
+          edm::LogPrint("PrimaryVertexProducer") << " t " << std::setw(6) << std::setprecision(3) << v->t() << " dt "
+                                                 << std::setw(6) << std::setprecision(3) << v->tError();
         }
-        std::cout << std::endl;
       }
     }
 
@@ -364,6 +350,7 @@ void PrimaryVertexProducer::fillDescriptions(edm::ConfigurationDescriptions& des
     vpsd1.add<bool>("useBeamConstraint", false);
     vpsd1.add<std::string>("label", "");
     vpsd1.add<double>("chi2cutoff", 2.5);
+    vpsd1.add<double>("zcutoff", 1.0);
     vpsd1.add<double>("mintrkweight", 0.0);
     vpsd1.add<double>("minNdof", 0.0);
     vpsd1.add<edm::ParameterSetDescription>("vertexTimeParameters", psd_pv_time);
@@ -378,6 +365,7 @@ void PrimaryVertexProducer::fillDescriptions(edm::ConfigurationDescriptions& des
       temp2.addParameter<bool>("useBeamConstraint", false);
       temp2.addParameter<std::string>("label", "");
       temp2.addParameter<double>("chi2cutoff", 2.5);
+      temp2.addParameter<double>("zcutoff", 1.0);
       temp2.addParameter<double>("mintrkweight", 0.);
       temp2.addParameter<double>("minNdof", 0.0);
       edm::ParameterSet temp_vertexTime;
@@ -392,6 +380,7 @@ void PrimaryVertexProducer::fillDescriptions(edm::ConfigurationDescriptions& des
       temp2.addParameter<bool>("useBeamConstraint", true);
       temp2.addParameter<std::string>("label", "WithBS");
       temp2.addParameter<double>("chi2cutoff", 2.5);
+      temp2.addParameter<double>("zcutoff", 1.0);
       temp2.addParameter<double>("mintrkweight", 0.);
       temp2.addParameter<double>("minNdof", 2.0);
       edm::ParameterSet temp_vertexTime;

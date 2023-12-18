@@ -71,7 +71,7 @@ _phase2_tktiming_vertexrecoTask = cms.Task( vertexrecoTask.copy() ,
 _phase2_tktiming_layer_vertexrecoTask = cms.Task( _phase2_tktiming_vertexrecoTask.copy() ,
                                             tofPID3D,
                                             tofPID,
-                                            tofPID4DnoPID
+                                            tofPID4DnoPID,
                                             )
 
 from Configuration.Eras.Modifier_phase2_timing_cff import phase2_timing
