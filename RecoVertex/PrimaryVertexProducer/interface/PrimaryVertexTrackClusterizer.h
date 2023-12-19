@@ -12,16 +12,17 @@
 #include <vector>
 #include "TrackingTools/TransientTrack/interface/TransientTrack.h"
 #include "RecoVertex/VertexPrimitives/interface/TransientVertex.h"
+#include "RecoVertex/PrimaryVertexProducer/interface/TrackClusterizerInZ.h"
 
 class PrimaryVertexTrackClusterizer : public TrackClusterizerInZ {
 public:
   PrimaryVertexTrackClusterizer(){};
-  PrimaryVetrtexTrackClusterizer(const edm::ParameterSet& conf){};
+  PrimaryVertexTrackClusterizer(const edm::ParameterSet& conf){};
   virtual std::vector<TransientVertex> vertices(const std::vector<reco::TransientTrack>& tracks) const = 0;
   virtual std::vector<std::vector<reco::TransientTrack> > clusterize(
       const std::vector<reco::TransientTrack>& tracks) const = 0;
 
-  virtual ~PrimaryVertexTrackClusterizerInZ(){};
+  virtual ~PrimaryVertexTrackClusterizer(){};
 };
 
 #endif

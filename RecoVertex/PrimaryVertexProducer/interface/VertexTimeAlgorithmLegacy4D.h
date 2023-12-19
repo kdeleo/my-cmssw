@@ -16,6 +16,8 @@ public:
   void setEvent(edm::Event& iEvent, edm::EventSetup const& iSetup) override;
 
   bool vertexTime(float& vtxTime, float& vtxTimeError, TransientVertex const& vtx) const override;
+
+  static constexpr float defaultInvalidTrackReso = 0.350f;
 };
 
 #endif

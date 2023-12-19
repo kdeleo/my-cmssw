@@ -134,7 +134,9 @@ bool VertexTimeAlgorithmFromTracksPID::vertexTime(float& vtxTime,
       for (auto const& trkInfo : v_trackInfo) {
         double dt = trkInfo.trkTimeError;
         double e[3] = {0, 0, 0};
-        double Z = vdt::fast_exp(-beta * 0.5 * 3. * 3.);
+        const double cut_off = 4.5;
+        double Z = vdt::fast_exp(
+            -beta * cut_off);  // outlier rejection term Z_0 = exp(-beta * cut_off) = exp(-beta * 0.5 * 3 * 3)
         for (unsigned int j = 0; j < 3; j++) {
           auto const tpull = (trkInfo.trkTimeHyp[j] - t0) / dt;
           e[j] = vdt::fast_exp(-0.5 * beta * tpull * tpull);

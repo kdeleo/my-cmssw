@@ -6,6 +6,7 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "RecoVertex/VertexPrimitives/interface/TransientVertex.h"
+#include "RecoVertex/PrimaryVertexProducer/interface/PrimaryVertexFitterBase.h"
 
 namespace WeightedMeanFitter {
 

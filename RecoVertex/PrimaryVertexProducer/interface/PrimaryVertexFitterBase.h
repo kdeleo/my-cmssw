@@ -1,6 +1,8 @@
 #ifndef PrimaryVertexFitterBase_h
 #define PrimaryVertexFitterBase_h
 
+#include <vector>
+
 /**\class PrimaryVertexFitterBase
  
   Description: base class for primary vertex fitters

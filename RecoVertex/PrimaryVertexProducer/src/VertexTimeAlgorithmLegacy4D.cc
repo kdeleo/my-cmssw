@@ -33,8 +33,8 @@ bool VertexTimeAlgorithmLegacy4D::vertexTime(float& vtxTime, float& vtxTimeError
   for (const auto& trk : vtx.originalTracks()) {
     const double time = trk.timeExt();
     const double err = trk.dtErrorExt();
-    if ((time == 0) && (err > 0.349))
-      continue;  // tracks with no time information
+    if ((time == 0) && (err > defaultInvalidTrackReso))
+      continue;  // tracks with no time information, as implemented in TransientTrackBuilder.cc l.17
     const double inverr = err > 0. ? 1.0 / err : 0.;
     const double w = inverr * inverr;
     sumwt += w * time;
