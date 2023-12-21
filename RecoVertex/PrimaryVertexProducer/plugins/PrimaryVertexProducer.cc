@@ -301,8 +301,10 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
                                                  << bse.matrix();
       } else {
         vColl.push_back(reco::Vertex(beamSpot.position(), beamSpot.rotatedCovariance3D(), 0., 0., 0));
-        edm::LogWarning("PrimaryVertexProducer")
-            << "Zero recostructed vertices, will put reco::Vertex derived from BeamSpot into Event.";
+        if (fVerbose) {
+          edm::LogWarning("PrimaryVertexProducer")
+              << "Zero recostructed vertices, will put reco::Vertex derived from BeamSpot into Event.";
+        }
       }
     }
 

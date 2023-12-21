@@ -41,7 +41,6 @@
 #include "RecoVertex/PrimaryVertexProducer/interface/GapClusterizerInZ.h"
 #include "RecoVertex/KalmanVertexFit/interface/KalmanVertexFitter.h"
 #include "RecoVertex/AdaptiveVertexFit/interface/AdaptiveVertexFitter.h"
-//#include "RecoVertex/VertexTools/interface/VertexDistanceXY.h"
 #include "RecoVertex/VertexPrimitives/interface/VertexException.h"
 #include <algorithm>
 #include "RecoVertex/PrimaryVertexProducer/interface/VertexHigherPtSquared.h"

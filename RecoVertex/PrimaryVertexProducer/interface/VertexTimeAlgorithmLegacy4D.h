@@ -5,6 +5,7 @@
 
 #include "FWCore/Utilities/interface/EDGetToken.h"
 #include "DataFormats/Common/interface/ValueMap.h"
+#include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
 
 class VertexTimeAlgorithmLegacy4D : public VertexTimeAlgorithmBase {
 public:
@@ -16,8 +17,6 @@ public:
   void setEvent(edm::Event& iEvent, edm::EventSetup const& iSetup) override;
 
   bool vertexTime(float& vtxTime, float& vtxTimeError, TransientVertex const& vtx) const override;
-
-  static constexpr float defaultInvalidTrackReso = 0.350f;
 };
 
 #endif

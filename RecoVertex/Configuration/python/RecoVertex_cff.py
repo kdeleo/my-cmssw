@@ -85,6 +85,6 @@ phase2_timing_layer.toReplaceWith(offlinePrimaryVertices4DWithBS, offlinePrimary
 phase2_timing_layer.toModify(offlinePrimaryVertices4D, vertices = "unsortedOfflinePrimaryVertices4D", particles = "trackRefsForJetsBeforeSorting4D")
 phase2_timing_layer.toModify(offlinePrimaryVertices4DWithBS, vertices = "unsortedOfflinePrimaryVertices4D:WithBS", particles = "trackRefsForJetsBeforeSorting4D")
 
-from Configuration.ProcessModifiers.useMVASel_cff import useMVASel
-useMVASel.toModify(unsortedOfflinePrimaryVertices4D, useMVACut = cms.bool(True))
-useMVASel.toModify(unsortedOfflinePrimaryVertices4DwithPID, useMVACut = cms.bool(True))
+from Configuration.ProcessModifiers.vertex4DTrackSelMVA_cff import vertex4DTrackSelMVA
+vertex4DTrackSelMVA.toModify(unsortedOfflinePrimaryVertices4D, useMVACut = True)
+vertex4DTrackSelMVA.toModify(unsortedOfflinePrimaryVertices4DwithPID, useMVACut = True)
