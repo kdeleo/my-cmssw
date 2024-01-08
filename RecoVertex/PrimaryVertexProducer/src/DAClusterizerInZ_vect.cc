@@ -46,12 +46,6 @@ DAClusterizerInZ_vect::DAClusterizerInZ_vect(const edm::ParameterSet& conf) {
   runInBlocks_ = conf.getParameter<bool>("runInBlocks");
   block_size_ = conf.getParameter<unsigned int>("block_size");
   overlap_frac_ = conf.getParameter<double>("overlap_frac");
-  if (overlap_frac_ < 0) {
-    overlap_frac_ = -overlap_frac_;
-    shabang_ = true;
-  } else {
-    shabang_ = false;
-  }
 
 #ifdef DEBUG
   std::cout << "DAClusterizerinZ_vect: mintrkweight = " << mintrkweight_ << std::endl;
@@ -1131,67 +1125,6 @@ vector<TransientVertex> DAClusterizerInZ_vect::vertices_in_blocks(const vector<r
             vertices_tot.end(),
             [](const pair<float, float>& a, const pair<float, float>& b) -> bool { return a.first < b.first; });
 
-  // normalize rhos
-  if (shabang_) {
-    double rho_sum = 0;
-    for (auto k = 0U; k < vertices_tot.size(); k++) {
-      rho_sum += vertices_tot[k].second;
-    }
-    // dump
-#ifdef DEBUG
-    if (DEBUGLEVEL > 1) {
-      std::cout << "vertices_in_blocks nv= " << vertices_tot.size() << "before xmerging  rho_sum = " << rho_sum
-                << std::endl;
-      for (auto k = 0U; k < vertices_tot.size(); k++) {
-        std::cout << std::setw(5) << k << std::setprecision(4) << std::fixed << vertices_tot[k].first << "  "
-                  << std::setprecision(4) << std::fixed << vertices_tot[k].second << std::endl;
-      }
-    }
-#endif
-    if (rho_sum > 0) {
-      for (auto k = 0U; k < vertices_tot.size(); k++) {
-        vertices_tot[k].second /= rho_sum;
-      }
-    }
-    double dz = 1e-4;
-    while (dz < 10e-4) {
-      unsigned int k = 0;
-      while (k < vertices_tot.size() - 1) {
-        if ((vertices_tot[k + 1].first - vertices_tot[k].first) < dz) {
-          float s = vertices_tot[k + 1].second + vertices_tot[k].second;
-#ifdef DEBUG
-          if (DEBUGLEVEL > 1) {
-            std::cout << " xmerging  " << std::setw(5) << k << " " << std::fixed << std::setprecision(4)
-                      << vertices_tot[k].first << " and " << vertices_tot[k + 1].first << " //   s=" << s
-                      << "   nv=" << vertices_tot.size() << std::endl;
-          }
-#endif
-          if (s > 0) {
-            vertices_tot[k].first = (vertices_tot[k + 1].first * vertices_tot[k + 1].second +
-                                     vertices_tot[k].first * vertices_tot[k].second) /
-                                    s;
-            vertices_tot[k].second = s;
-          } else {
-            vertices_tot[k].first = 0.5 * (vertices_tot[k + 1].first + vertices_tot[k].first);
-          }
-          vertices_tot.erase(vertices_tot.begin() + k + 1);
-        } else {
-          k += 1;
-        }
-      }
-      dz *= 2;
-    }
-#ifdef DEBUG
-    if (DEBUGLEVEL > 1) {
-      std::cout << "vertices_in_blocks nv= " << vertices_tot.size() << "after xmerging" << std::endl;
-      for (auto k = 0U; k < vertices_tot.size(); k++) {
-        std::cout << std::setw(5) << k << std::setprecision(4) << std::fixed << vertices_tot[k].first << "  "
-                  << std::setprecision(4) << std::fixed << vertices_tot[k].second << std::endl;
-      }
-    }
-#endif
-  }
-
   // reassign tracks to vertices
   track_t&& tracks_tot = fill(tracks);
   const unsigned int nv = vertices_tot.size();
@@ -1276,12 +1209,10 @@ vector<TransientVertex> DAClusterizerInZ_vect::vertices_in_blocks(const vector<r
   }
 
   GlobalError dummyError(0.01, 0, 0.01, 0., 0., 0.01);
-  vector<reco::TransientTrack> vertexTracks;  // moved here from inside the following loop
+  vector<reco::TransientTrack> vertexTracks;
 
   for (unsigned int k = 0; k < nv; k++) {
     if (!vtx_track_indices[k].empty()) {
-      // GlobalPoint pos(0, 0, vertices_tot[k].first); //moved
-      //vector<reco::TransientTrack> vertexTracks; // moved outside of the loop
       for (auto i : vtx_track_indices[k]) {
         vertexTracks.push_back(*(tracks_tot.tt[i]));
 #ifdef DEBUG

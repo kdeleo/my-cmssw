@@ -14,13 +14,13 @@
 
 class TrackClusterizerInZ {
 public:
-  TrackClusterizerInZ(){};
+  TrackClusterizerInZ() = default;
   TrackClusterizerInZ(const edm::ParameterSet& conf){};
   virtual std::vector<TransientVertex> vertices(const std::vector<reco::TransientTrack>& tracks) const = 0;
   virtual std::vector<std::vector<reco::TransientTrack> > clusterize(
       const std::vector<reco::TransientTrack>& tracks) const = 0;
 
-  virtual ~TrackClusterizerInZ(){};
+  virtual ~TrackClusterizerInZ() = default;
 };
 
 #endif

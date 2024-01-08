@@ -227,7 +227,7 @@ namespace WeightedMeanFitter {
     err_y = 1. / s_wy;
     err_z = 1. / s_wz;
 
-    while ((niter++) < 200) {
+    while ((niter++) < 2) {
       old_x = x;
       old_y = y;
       old_z = z;
@@ -459,11 +459,11 @@ namespace WeightedMeanFitter {
 };  // namespace WeightedMeanFitter
 
 // adapter for the multiprimaryvertexfitter scheme
-// this code was originally introduced as part of PrimaryVertexProducerPlugin.c
+// this code was originally introduced as part of PrimaryVertexProducer.cc
 // by Adriano Dee et.al., then moved here with minor modifications
 class WeightedMeanPrimaryVertexEstimator : public PrimaryVertexFitterBase {
 public:
-  WeightedMeanPrimaryVertexEstimator(){};
+  WeightedMeanPrimaryVertexEstimator() = default;
   ~WeightedMeanPrimaryVertexEstimator() override = default;
 
   std::vector<TransientVertex> fit(const std::vector<reco::TransientTrack>& dummy,

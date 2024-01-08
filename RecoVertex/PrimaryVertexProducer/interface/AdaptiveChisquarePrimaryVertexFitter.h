@@ -29,22 +29,22 @@ public:
 
 protected:
   void verify() {  // DEBUG only
-    unsigned int nt = trackinfo.size();
-    unsigned int nv = xv.size();
-    assert((yv.size() == nv) && "yv size");
-    assert((zv.size() == nv) && "zv size");
-    assert((tkfirstv.size() == (nv + 1)) && "tkfirstv size");
-    assert((tkmap.size() == tkweight.size()) && "tkmapsize <> tkweightssize");
+    unsigned int nt = trackinfo_.size();
+    unsigned int nv = xv_.size();
+    assert((yv_.size() == nv) && "yv size");
+    assert((zv_.size() == nv) && "zv size");
+    assert((tkfirstv_.size() == (nv + 1)) && "tkfirstv size");
+    assert((tkmap_.size() == tkweight_.size()) && "tkmapsize <> tkweightssize");
     for (unsigned int k = 0; k < nv; k++) {
-      assert((tkfirstv[k] < tkweight.size()) && "tkfirst[k]");
-      assert((tkfirstv[k + 1] <= tkweight.size()) && "tkfirst[k+1]");
-      assert((tkfirstv[k] <= tkfirstv[k + 1]) && "tkfirst[k/k+1]");
-      for (unsigned int j = tkfirstv[k]; j < tkfirstv[k + 1]; k++) {
-        assert((j < tkmap.size()) && "illegal tkfirst entry");
-        unsigned int i = tkmap[j];
+      assert((tkfirstv_[k] < tkweight_.size()) && "tkfirst[k]");
+      assert((tkfirstv_[k + 1] <= tkweight_.size()) && "tkfirst[k+1]");
+      assert((tkfirstv_[k] <= tkfirstv_[k + 1]) && "tkfirst[k/k+1]");
+      for (unsigned int j = tkfirstv_[k]; j < tkfirstv_[k + 1]; k++) {
+        assert((j < tkmap_.size()) && "illegal tkfirst entry");
+        unsigned int i = tkmap_[j];
         assert((i < nt) && "illegal tkmap entry");
-        assert((tkweight[i] >= 0) && "negative tkweight or nan");
-        assert((tkweight[i] <= 1) && "tkweight > 1 or nan");
+        assert((tkweight_[i] >= 0) && "negative tkweight or nan");
+        assert((tkweight_[i] <= 1) && "tkweight > 1 or nan");
       }
     }
   };
@@ -78,17 +78,17 @@ protected:
   void remove_vertex(unsigned int);
 
   // track information
-  std::vector<TrackInfo> trackinfo;
+  std::vector<TrackInfo> trackinfo_;
 
   // vertex lists:
-  std::vector<double> xv;
-  std::vector<double> yv;
-  std::vector<double> zv;
-  std::vector<Error3> V_vtx;
+  std::vector<double> xv_;
+  std::vector<double> yv_;
+  std::vector<double> zv_;
+  std::vector<Error3> covv_;
   // track-vertex-mapping and weights after a coarse z-cut:
-  std::vector<unsigned int> tkfirstv;  // parallel to the vertex list
-  std::vector<unsigned int> tkmap;     // parallel to tkweight
-  std::vector<double> tkweight;        // parallel to tkmap
+  std::vector<unsigned int> tkfirstv_;  // parallel to the vertex list
+  std::vector<unsigned int> tkmap_;     // parallel to tkweight
+  std::vector<double> tkweight_;        // parallel to tkmap
   // configuration
   double chi_cutoff_;
   double z_cutoff_;

@@ -229,7 +229,6 @@ private:
   bool runInBlocks_;
   unsigned int block_size_;
   double overlap_frac_;
-  bool shabang_;
 };
 
 //#ifndef DAClusterizerInZ_vect_h

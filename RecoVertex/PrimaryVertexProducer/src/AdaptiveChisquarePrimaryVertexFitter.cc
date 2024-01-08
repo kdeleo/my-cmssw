@@ -35,8 +35,8 @@ void AdaptiveChisquarePrimaryVertexFitter::fill_trackinfo(const std::vector<reco
                                                           const reco::BeamSpot &beamSpot) {
   /* fill track information used during fits into arrays, parallell to the list of input tracks */
 
-  trackinfo.clear();
-  trackinfo.reserve(tracks.size());
+  trackinfo_.clear();
+  trackinfo_.reserve(tracks.size());
 
   for (auto &trk : tracks) {
     TrackInfo ti;
@@ -49,12 +49,12 @@ void AdaptiveChisquarePrimaryVertexFitter::fill_trackinfo(const std::vector<reco
     auto const tan_lambda = momentum.z() / momentum.perp();
 
     // covariance matrix of (F1,F2)
-    double V11 = tspca_pe.covarianceMatrix()(3, 3);
-    double V22 = tspca_pe.covarianceMatrix()(4, 4);
-    double V12 = tspca_pe.covarianceMatrix()(3, 4);
+    double cov11 = tspca_pe.covarianceMatrix()(3, 3);
+    double cov22 = tspca_pe.covarianceMatrix()(4, 4);
+    double cov12 = tspca_pe.covarianceMatrix()(3, 4);
 
-    // S = V^{-1}
-    double DetV = V11 * V22 - V12 * V12;
+    // S = cov^{-1}
+    double DetV = cov11 * cov22 - cov12 * cov12;
     if (fabs(DetV) < 1.e-16) {
       edm::LogWarning("AdaptiveChisquarePrimaryVertexFitter")
           << "Warning, det(V) almost vanishes : " << DetV << " !! This should not happen!" << std::endl;
@@ -62,9 +62,9 @@ void AdaptiveChisquarePrimaryVertexFitter::fill_trackinfo(const std::vector<reco
       ti.S22 = 0;
       ti.S12 = 0;
     } else {
-      ti.S11 = V22 / DetV;
-      ti.S22 = V11 / DetV;
-      ti.S12 = -V12 / DetV;
+      ti.S11 = cov22 / DetV;
+      ti.S22 = cov11 / DetV;
+      ti.S12 = -cov12 / DetV;
     }
     ti.b1 = tspca.position().x() * sin_phi - tspca.position().y() * cos_phi;
     ti.H1[0] = -sin_phi;
@@ -86,88 +86,91 @@ void AdaptiveChisquarePrimaryVertexFitter::fill_trackinfo(const std::vector<reco
 
     ti.zpca = tspca.position().z();
     ti.dzError = trk.track().dzError();
-    trackinfo.push_back(ti);
+    trackinfo_.push_back(ti);
   }
 }
 
 void AdaptiveChisquarePrimaryVertexFitter::make_vtx_trk_map(double zrange_scale) {
-  unsigned const int nv = xv.size();
-  unsigned const int nt = trackinfo.size();
+  unsigned const int nv = xv_.size();
+  unsigned const int nt = trackinfo_.size();
 
+#ifdef PVTX_DEBUG
   if (nv < 1) {
     edm::LogWarning("AdaptiveChisquarePrimaryVertexFit") << " empty vertex list with " << nt << " tracks" << std::endl;
     return;
   }
+#endif
 
   // parallel lists for track to vertex mapping, tracks are not sorted
-  tkmap.clear();     // index in trackinfo
-  tkweight.clear();  // weight in vertex
-  tkfirstv.clear();  // each vertex k owns a section of those list : tkfirstv[k] .. tkfirstv[k+1]-1
+  tkmap_.clear();     // index in trackinfo_
+  tkweight_.clear();  // weight in vertex
+  tkfirstv_.clear();  // each vertex k owns a section of those list : tkfirstv_[k] .. tkfirstv_[k+1]-1
 
   if (nv == 1) {
     // always accept all tracks for a single vertex fit
-    tkfirstv.push_back(0);
-    tkfirstv.push_back(nt);
-    tkweight.assign(nt, 0.);
-    tkmap.reserve(nt);
+    tkfirstv_.push_back(0);
+    tkfirstv_.push_back(nt);
+    tkweight_.assign(nt, 0.);
+    tkmap_.reserve(nt);
     for (unsigned int i = 0; i < nt; i++) {
-      tkmap.emplace_back(i);
+      tkmap_.emplace_back(i);
     }
     return;
   }
 
   // n > 1
-  tkmap.reserve(nv * 100);
-  tkweight.reserve(nv * 100);
+  tkmap_.reserve(nv * 100);
+  tkweight_.reserve(nv * 100);
   for (unsigned int k = 0; k < nv; k++) {
-    tkfirstv.emplace_back(tkmap.size());
+    tkfirstv_.emplace_back(tkmap_.size());
     for (unsigned int i = 0; i < nt; i++) {
-      auto &ti = trackinfo[i];
+      auto &ti = trackinfo_[i];
       const double zrange = zrange_scale * ti.dzError;
-      if (std::abs(zv[k] - ti.zpca) < z_cutoff_) {
-        const double dztrk = ti.b2 + xv[k] * ti.H2[0] + yv[k] * ti.H2[1] - zv[k];
+      if (std::abs(zv_[k] - ti.zpca) < z_cutoff_) {
+        const double dztrk = ti.b2 + xv_[k] * ti.H2[0] + yv_[k] * ti.H2[1] - zv_[k];
         if (std::abs(dztrk) < zrange) {
-          tkmap.emplace_back(i);
-          tkweight.emplace_back(0.);
+          tkmap_.emplace_back(i);
+          tkweight_.emplace_back(0.);
         }
       }
     }
   }
-  tkfirstv.emplace_back(tkmap.size());  // extra entry, simplifies loops, every vertex has a "successor" now
+  tkfirstv_.emplace_back(tkmap_.size());  // extra entry, simplifies loops, every vertex has a "successor" now
 }
 
 void AdaptiveChisquarePrimaryVertexFitter::fill_weights(const reco::BeamSpot &beamspot, double beta) {
   // multi-vertex version
-  unsigned const int nt = trackinfo.size();
-  unsigned const int nv = xv.size();
+  unsigned const int nt = trackinfo_.size();
+  unsigned const int nv = xv_.size();
+  const double beta_over_2 = 0.5 * beta;
+  const double argmax = beta_over_2 * chi_cutoff_ * chi_cutoff_ * 5;
+  const double Z_cutoff = vdt::fast_exp(-beta_over_2 * chi_cutoff_ * chi_cutoff_);
 
-  const double Z_cutoff = vdt::fast_exp(-0.5 * beta * chi_cutoff_ * chi_cutoff_);
   std::vector<double> Z_track(nt, Z_cutoff);
-  const double argmax = 0.5 * beta * chi_cutoff_ * chi_cutoff_ * 5;
 
   // evaluate and cache track-vertex assignment chi**2 for all clusters and sum up Z
   for (unsigned int k = 0; k < nv; k++) {
-    for (unsigned int j = tkfirstv[k]; j < tkfirstv[k + 1]; j++) {
-      const unsigned int i = tkmap[j];
-      double arg = 0.5 * beta * track_in_vertex_chsq(trackinfo[i], xv[k], yv[k], zv[k]);
+    for (unsigned int j = tkfirstv_[k]; j < tkfirstv_[k + 1]; j++) {
+      const unsigned int i = tkmap_[j];
+      double arg = beta_over_2 * track_in_vertex_chsq(trackinfo_[i], xv_[k], yv_[k], zv_[k]);
       if (arg < argmax) {
         const double e = vdt::fast_exp(-arg);
-        tkweight[j] = e;  // must later be normalized by the proper Z_track[i]
-        Z_track[i] += e;  // sum up exponentials to normalize
+        tkweight_[j] = e;  // must later be normalized by the proper Z_track[i]
+        Z_track[i] += e;   // sum up exponentials to normalize
       } else {
-        tkweight[j] = 0.;
+        tkweight_[j] = 0.;
       }
     }
   }
 
   // now we have the partition function, Z_i and can evaluate assignment probabilities (aka weights)
-  for (unsigned int j = 0; j < tkmap.size(); j++) {
-    const unsigned int i = tkmap[j];
+  for (unsigned int j = 0; j < tkmap_.size(); j++) {
+    const unsigned int i = tkmap_[j];
 #ifdef PVT_DEBUG
     assert((i < nt) && "tkmap out of range");
-    assert((tkmap.size() == tkweight.size()) && "map and list not aliged");
+    assert((tkmap_.size() == tkweight_.size()) && "map and list not aliged");
 #endif
-    tkweight[j] /= Z_track[i];
+    tkweight_[j] /= Z_track[i];
   }
 }
 
@@ -180,24 +183,24 @@ bool AdaptiveChisquarePrimaryVertexFitter::clean() {
      to another vertex
    */
   const double trkweight_threshold = 0.7;
-  unsigned int nv = xv.size();
+  unsigned int nv = xv_.size();
   if (nv < 2)
     return false;
 
   // sum of weights per vertex
   std::vector<double> wsumhi(nv, 0);
   for (unsigned int k = 0; k < nv; k++) {
-    for (unsigned int j = tkfirstv[k]; j < tkfirstv[k + 1]; j++) {
-      if (tkweight[j] > trkweight_threshold)
-        wsumhi[k] += tkweight[j];
+    for (unsigned int j = tkfirstv_[k]; j < tkfirstv_[k + 1]; j++) {
+      if (tkweight_[j] > trkweight_threshold)
+        wsumhi[k] += tkweight_[j];
     }
   }
 
   double dzmin = 0;
   unsigned int k_dzmin = 0;
   for (unsigned int k = 0; k < nv - 1; k++) {
-    if ((k == 0) || (std::abs(zv[k + 1] - zv[k]) < dzmin)) {
-      dzmin = std::abs(zv[k + 1] - zv[k]);
+    if ((k == 0) || (std::abs(zv_[k + 1] - zv_[k]) < dzmin)) {
+      dzmin = std::abs(zv_[k + 1] - zv_[k]);
       k_dzmin = k;
     }
   }
@@ -216,27 +219,27 @@ bool AdaptiveChisquarePrimaryVertexFitter::clean() {
 void AdaptiveChisquarePrimaryVertexFitter::remove_vertex(unsigned int k) {
   // remove a vertex or rather merge it with it's neighbour
   // used for multi-vertex fits only
-  unsigned int nv = xv.size();
+  unsigned int nv = xv_.size();
   if (nv < 2)
     return;
 
   // 1) remove the vertex from the vertex list
-  xv.erase(xv.begin() + k);
-  yv.erase(yv.begin() + k);
-  zv.erase(zv.begin() + k);
-  V_vtx.erase(V_vtx.begin() + k);
+  xv_.erase(xv_.begin() + k);
+  yv_.erase(yv_.begin() + k);
+  zv_.erase(zv_.begin() + k);
+  covv_.erase(covv_.begin() + k);
 
   // 2) adjust the track-map map
   // 2a) remove the map entries that belong the deleted vertex
-  const unsigned int num_erased_map_entries = tkfirstv[k + 1] - tkfirstv[k];
-  tkmap.erase(tkmap.begin() + tkfirstv[k], tkmap.begin() + tkfirstv[k + 1]);
-  tkweight.erase(tkweight.begin() + tkfirstv[k], tkweight.begin() + tkfirstv[k + 1]);
+  const unsigned int num_erased_map_entries = tkfirstv_[k + 1] - tkfirstv_[k];
+  tkmap_.erase(tkmap_.begin() + tkfirstv_[k], tkmap_.begin() + tkfirstv_[k + 1]);
+  tkweight_.erase(tkweight_.begin() + tkfirstv_[k], tkweight_.begin() + tkfirstv_[k + 1]);
   // 2b) adjust pointers for the following vertices, including the dummy entry behind the last (now [nv-1])
   for (unsigned int k1 = k + 1; k1 < nv + 1; k1++) {
-    tkfirstv[k1] -= num_erased_map_entries;
+    tkfirstv_[k1] -= num_erased_map_entries;
   }
   // 2c) erase the pointer of the removed vertex
-  tkfirstv.erase(tkfirstv.begin() + k);
+  tkfirstv_.erase(tkfirstv_.begin() + k);
 }
 
 double AdaptiveChisquarePrimaryVertexFitter::update(const reco::BeamSpot &beamspot,
@@ -246,10 +249,10 @@ double AdaptiveChisquarePrimaryVertexFitter::update(const reco::BeamSpot &beamsp
   double delta_z = 0;
   double delta_x = 0;
   double delta_y = 0;
-  unsigned const int nt = trackinfo.size();
-  unsigned const int nv = xv.size();
+  unsigned const int nt = trackinfo_.size();
+  unsigned const int nv = xv_.size();
   if (fill_covariances) {
-    V_vtx.clear();
+    covv_.clear();
   }
 
   // initial value for S, 0 or inverse of the beamspot covariance matrix
@@ -267,13 +270,13 @@ double AdaptiveChisquarePrimaryVertexFitter::update(const reco::BeamSpot &beamsp
     Error3 S(S0);
     // sum track contributions
     double c[3] = {c0, c1, c2};
-    for (unsigned int j = tkfirstv[k]; j < tkfirstv[k + 1]; j++) {
-      const unsigned int i = tkmap[j];
-      const auto w = tkweight[j];
+    for (unsigned int j = tkfirstv_[k]; j < tkfirstv_[k + 1]; j++) {
+      const unsigned int i = tkmap_[j];
+      const auto w = tkweight_[j];
       rho_vtx += w;
-      S += w * trackinfo[i].C;
+      S += w * trackinfo_[i].C;
       for (unsigned int l = 0; l < 3; l++) {
-        c[l] += w * trackinfo[i].g[l];
+        c[l] += w * trackinfo_[i].g[l];
       }
     }
 
@@ -287,25 +290,32 @@ double AdaptiveChisquarePrimaryVertexFitter::update(const reco::BeamSpot &beamsp
     }
 #endif
 
-    const auto xold = xv[k];
-    const auto yold = yv[k];
-    const auto zold = zv[k];
+    const auto xold = xv_[k];
+    const auto yold = yv_[k];
+    const auto zold = zv_[k];
 
     if (S.Invert()) {
-      xv[k] = -(S(0, 0) * c[0] + S(0, 1) * c[1] + S(0, 2) * c[2]);
-      yv[k] = -(S(1, 0) * c[0] + S(1, 1) * c[1] + S(1, 2) * c[2]);
-      zv[k] = -(S(2, 0) * c[0] + S(2, 1) * c[1] + S(2, 2) * c[2]);
+      xv_[k] = -(S(0, 0) * c[0] + S(0, 1) * c[1] + S(0, 2) * c[2]);
+      yv_[k] = -(S(1, 0) * c[0] + S(1, 1) * c[1] + S(1, 2) * c[2]);
+      zv_[k] = -(S(2, 0) * c[0] + S(2, 1) * c[1] + S(2, 2) * c[2]);
       if (fill_covariances) {
-        V_vtx.emplace_back(S);
+        covv_.emplace_back(S);
       }
     } else {
       edm::LogWarning("AdaptiveChisquarePrimaryVertexFitter") << "update()   Matrix inversion failed" << S << std::endl;
+      if (fill_covariances) {
+        Error3 covv_dummy;
+        covv_dummy(0, 0) = 100.;
+        covv_dummy(1, 1) = 100.;
+        covv_dummy(2, 2) = 100.;
+        covv_.emplace_back(covv_dummy);
+      }
     }
 
     if ((nt > 1) && (rho_vtx > 1.0)) {
-      delta_x = std::max(delta_x, std::abs(xv[k] - xold));
-      delta_y = std::max(delta_y, std::abs(yv[k] - yold));
-      delta_z = std::max(delta_z, std::abs(zv[k] - zold));
+      delta_x = std::max(delta_x, std::abs(xv_[k] - xold));
+      delta_y = std::max(delta_y, std::abs(yv_[k] - yold));
+      delta_z = std::max(delta_z, std::abs(zv_[k] - zold));
     }
 
   }  // vertex loop
@@ -335,18 +345,18 @@ TransientVertex AdaptiveChisquarePrimaryVertexFitter::get_TransientVertex(
     const std::vector<reco::TransientTrack> &tracks,
     const float beam_weight,
     const reco::BeamSpot &beamspot) {
-  const GlobalPoint pos(xv[k], yv[k], zv[k]);
+  const GlobalPoint pos(xv_[k], yv_[k], zv_[k]);
   const GlobalError posError(
-      V_vtx[k](0, 0), V_vtx[k](1, 0), V_vtx[k](1, 1), V_vtx[k](2, 0), V_vtx[k](2, 1), V_vtx[k](2, 2));
+      covv_[k](0, 0), covv_[k](1, 0), covv_[k](1, 1), covv_[k](2, 0), covv_[k](2, 1), covv_[k](2, 2));
   float chi2 = 0.;
   float vtx_ndof = -3.;
   if (beam_weight > 0) {
     // add beam-spot chi**2 and degrees of freedom
     vtx_ndof = 3 * beam_weight;
     const auto S = get_inverse_beam_covariance(beamspot);
-    const double dx = xv[k] - beamspot.x0();
-    const double dy = yv[k] - beamspot.y0();
-    const double dz = zv[k] - beamspot.z0();
+    const double dx = xv_[k] - beamspot.x0();
+    const double dy = yv_[k] - beamspot.y0();
+    const double dz = zv_[k] - beamspot.z0();
     chi2 = beam_weight * (S(0, 0) * dx * dx + S(1, 1) * dy * dy + 2 * S(0, 1) * dx * dy + S(2, 2) * dz * dz +
                           2 * S(0, 2) * dx * dz + 2 * S(1, 2) * dy * dz);
   }
@@ -360,7 +370,7 @@ TransientVertex AdaptiveChisquarePrimaryVertexFitter::get_TransientVertex(
       vertex_tracks.emplace_back(tracks[i]);
       trkWeightMap[tracks[i]] = track_weight;
       vtx_ndof += 2 * track_weight;
-      chi2 += track_weight * track_in_vertex_chsq(trackinfo[i], xv[k], yv[k], zv[k]);
+      chi2 += track_weight * track_in_vertex_chsq(trackinfo_[i], xv_[k], yv_[k], zv_[k]);
     }
   }
 
@@ -381,29 +391,28 @@ std::vector<TransientVertex> AdaptiveChisquarePrimaryVertexFitter::vertices(
 
   // initialize the vertices
   const unsigned int nv = clusters.size();
-  xv.clear();
-  xv.reserve(nv);
-  yv.clear();
-  yv.reserve(nv);
-  zv.clear();
-  zv.reserve(nv);
-  tkfirstv.clear();
-  tkfirstv.reserve(nv + 1);
-  V_vtx.clear();
-  V_vtx.reserve(nv);
+  xv_.clear();
+  xv_.reserve(nv);
+  yv_.clear();
+  yv_.reserve(nv);
+  zv_.clear();
+  zv_.reserve(nv);
+  tkfirstv_.clear();
+  tkfirstv_.reserve(nv + 1);
+  covv_.clear();
+  covv_.reserve(nv);
 
   // seeds
   for (auto &clu : clusters) {
     const double zclu = clu.position().z();
-    xv.emplace_back(beamspot.x(zclu));
-    yv.emplace_back(beamspot.y(zclu));
-    zv.emplace_back(zclu);
+    xv_.emplace_back(beamspot.x(zclu));
+    yv_.emplace_back(beamspot.y(zclu));
+    zv_.emplace_back(zclu);
   }
 
   fill_trackinfo(tracks, beamspot);
 
-  const double beta = 1.0;  // no annealing
-  make_vtx_trk_map(5 * sqrt(beta));
+  make_vtx_trk_map(5.);  // use tracks within 5 sigma windows (if that is less than z_cutoff_)
 
   float beam_weight = useBeamConstraint ? 1. : 0.;
 
@@ -414,7 +423,7 @@ std::vector<TransientVertex> AdaptiveChisquarePrimaryVertexFitter::vertices(
     delta = update(beamspot, beam_weight, false);
     nit++;
   }
-  if (nit >= max_iterations) {
+  if ((nit >= max_iterations) && (delta > 0.01)) {
     edm::LogWarning("AdaptiveChisquarePrimaryVertexFitter")
         << "iteration limit reached " << nit << "  last delta = " << delta << std::endl
         << " nv = " << nv << "    nt = " << tracks.size() << std::endl;
@@ -422,27 +431,24 @@ std::vector<TransientVertex> AdaptiveChisquarePrimaryVertexFitter::vertices(
 
   // may need to remove collapsed vertices
   nit = 0;
-  while ((xv.size() > 1) && (nit < max_iterations) && (clean())) {
+  while ((xv_.size() > 1) && (nit < max_iterations) && (clean())) {
     fill_weights(beamspot);
     update(beamspot, beam_weight, false);
     nit++;
-  }
-  if (nit >= max_iterations) {
-    edm::LogWarning("AdaptiveChisquarePrimaryVertexFitter") << "cleaning iteration limit reached " << nit << std::endl;
   }
 
   // fill the covariance matrices
   update(beamspot, beam_weight, true);
 
   // assign tracks to vertices
-  std::vector<unsigned int> track_to_vertex(trackinfo.size(), nv);
+  std::vector<unsigned int> track_to_vertex(trackinfo_.size(), nv);
   // for each track identify the vertex that wants it most
-  std::vector<double> maxweight(trackinfo.size(), -1.);
+  std::vector<double> maxweight(trackinfo_.size(), -1.);
   for (unsigned int k = 0; k < nv; k++) {
-    for (unsigned int j = tkfirstv[k]; j < tkfirstv[k + 1]; j++) {
-      const unsigned int i = tkmap[j];
-      if (tkweight[j] > maxweight[i]) {
-        maxweight[i] = tkweight[j];
+    for (unsigned int j = tkfirstv_[k]; j < tkfirstv_[k + 1]; j++) {
+      const unsigned int i = tkmap_[j];
+      if (tkweight_[j] > maxweight[i]) {
+        maxweight[i] = tkweight_[j];
         track_to_vertex[i] = k;
       }
     }
@@ -450,12 +456,12 @@ std::vector<TransientVertex> AdaptiveChisquarePrimaryVertexFitter::vertices(
 
   // fill the fit result into transient vertices
   std::vector<TransientVertex> pvs;
-  for (unsigned int k = 0; k < xv.size(); k++) {
+  for (unsigned int k = 0; k < xv_.size(); k++) {
     std::vector<std::pair<unsigned int, float>> vertex_tracks_weights;
-    for (unsigned int j = tkfirstv[k]; j < tkfirstv[k + 1]; j++) {
-      unsigned int i = tkmap[j];
+    for (unsigned int j = tkfirstv_[k]; j < tkfirstv_[k + 1]; j++) {
+      unsigned int i = tkmap_[j];
       if (track_to_vertex[i] == k) {
-        vertex_tracks_weights.emplace_back(tkmap[j], tkweight[j]);
+        vertex_tracks_weights.emplace_back(tkmap_[j], tkweight_[j]);
       }
     }
     pvs.emplace_back(get_TransientVertex(k, vertex_tracks_weights, tracks, beam_weight, beamspot));
@@ -471,20 +477,20 @@ TransientVertex AdaptiveChisquarePrimaryVertexFitter::refit(const TransientVerte
   const unsigned int nt = cluster.originalTracks().size();
   const int max_iterations = 50;
 
-  // initialize, vectors with size=1 here to avoid code duplication form the multivertex case in update()
+  // initialize, vectors with size=1 here to avoid code duplication from the multivertex case in update()
   const double zclu = cluster.position().z();
-  xv = {beamspot.x(zclu)};
-  yv = {beamspot.y(zclu)};
-  zv = {zclu};
-  tkfirstv = {0, nt};
-  V_vtx.clear();
+  xv_ = {beamspot.x(zclu)};
+  yv_ = {beamspot.y(zclu)};
+  zv_ = {zclu};
+  tkfirstv_ = {0, nt};
+  covv_.clear();
 
   fill_trackinfo(cluster.originalTracks(), beamspot);
-  tkweight.assign(nt, 0.);
-  tkmap.clear();
-  tkmap.reserve(nt);
+  tkweight_.assign(nt, 0.);
+  tkmap_.clear();
+  tkmap_.reserve(nt);
   for (unsigned int i = 0; i < nt; i++) {
-    tkmap.emplace_back(i);  // trivial map for single vertex fits
+    tkmap_.emplace_back(i);  // trivial map for single vertex fits
   }
 
   float beam_weight = useBeamConstraint ? 1. : 0.;
@@ -497,7 +503,7 @@ TransientVertex AdaptiveChisquarePrimaryVertexFitter::refit(const TransientVerte
     nit++;
   }
 
-  if (nit >= max_iterations) {
+  if ((nit >= max_iterations) && (delta > 0.1)) {
     edm::LogWarning("AdaptiveChisquarePrimaryVertexFitter")
         << "single vertex fit, iteration limit reached " << nit << "  last delta = " << delta << std::endl
         << "    nt = " << cluster.originalTracks().size() << std::endl;
@@ -509,7 +515,7 @@ TransientVertex AdaptiveChisquarePrimaryVertexFitter::refit(const TransientVerte
   // put the result into a transient vertex
   std::vector<std::pair<unsigned int, float>> vertex_track_weights;
   for (unsigned int i = 0; i < nt; i++) {
-    vertex_track_weights.emplace_back(i, tkweight[i]);
+    vertex_track_weights.emplace_back(i, tkweight_[i]);
   }
 
   return get_TransientVertex(0, vertex_track_weights, cluster.originalTracks(), beam_weight, beamspot);
