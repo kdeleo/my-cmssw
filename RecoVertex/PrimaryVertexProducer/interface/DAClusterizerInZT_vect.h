@@ -11,6 +11,7 @@
 
 #include "RecoVertex/PrimaryVertexProducer/interface/TrackClusterizerInZ.h"
 #include "TrackingTools/TransientTrack/interface/TransientTrack.h"
+#include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include <vector>

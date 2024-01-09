@@ -19,11 +19,11 @@
 PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
     : theTTBToken(esConsumes(edm::ESInputTag("", "TransientTrackBuilder"))), theConfig(conf) {
   fVerbose = conf.getUntrackedParameter<bool>("verbose", false);
-  useMVASelection = conf.getParameter<bool>("useMVACut");
+  useMVASelection_ = conf.getParameter<bool>("useMVACut");
 
   trkToken = consumes<reco::TrackCollection>(conf.getParameter<edm::InputTag>("TrackLabel"));
   bsToken = consumes<reco::BeamSpot>(conf.getParameter<edm::InputTag>("beamSpotLabel"));
-  useTransientTrackTime = false;
+  useTransientTrackTime_ = false;
 
   // select and configure the track selection
   std::string trackSelectionAlgorithm =
@@ -48,17 +48,17 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
   } else if (clusteringAlgorithm == "DA2D_vect") {
     theTrackClusterizer = new DAClusterizerInZT_vect(
         conf.getParameter<edm::ParameterSet>("TkClusParameters").getParameter<edm::ParameterSet>("TkDAClusParameters"));
-    useTransientTrackTime = true;
+    useTransientTrackTime_ = true;
   } else {
     throw VertexException("PrimaryVertexProducer: unknown clustering algorithm: " + clusteringAlgorithm);
   }
 
-  if (useTransientTrackTime) {
+  if (useTransientTrackTime_) {
     trkTimesToken = consumes<edm::ValueMap<float> >(conf.getParameter<edm::InputTag>("TrackTimesLabel"));
     trkTimeResosToken = consumes<edm::ValueMap<float> >(conf.getParameter<edm::InputTag>("TrackTimeResosLabel"));
     trackMTDTimeQualityToken =
         consumes<edm::ValueMap<float> >(conf.getParameter<edm::InputTag>("trackMTDTimeQualityVMapTag"));
-    minTrackTimeQuality = conf.getParameter<double>("minTrackTimeQuality");
+    minTrackTimeQuality_ = conf.getParameter<double>("minTrackTimeQuality");
   }
 
   // select and configure the vertex fitters
@@ -111,7 +111,7 @@ PrimaryVertexProducer::PrimaryVertexProducer(const edm::ParameterSet& conf)
     if (vertexTimeAlgorithm.empty()) {
       algorithm.pv_time_estimator = nullptr;
     } else if (vertexTimeAlgorithm == "legacy4D") {
-      useTransientTrackTime = true;
+      useTransientTrackTime_ = true;
       algorithm.pv_time_estimator =
           new VertexTimeAlgorithmLegacy4D(pv_time_conf.getParameter<edm::ParameterSet>("legacy4D"), collector);
     } else if (vertexTimeAlgorithm == "fromTracksPID") {
@@ -204,28 +204,24 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
   const auto& theB = &iSetup.getData(theTTBToken);
   std::vector<reco::TransientTrack> t_tks;
 
-  if (useTransientTrackTime) {
+  if (useTransientTrackTime_) {
     edm::Handle<edm::ValueMap<float> > trackTimeResosH;
     iEvent.getByToken(trkTimeResosToken, trackTimeResosH);
 
-    if (useMVASelection) {
+    if (useMVASelection_) {
       trackMTDTimeQualities_ = iEvent.get(trackMTDTimeQualityToken);
-      edm::Handle<edm::ValueMap<float> > MVAQualH;
-      iEvent.getByToken(trackMTDTimeQualityToken, MVAQualH);
 
       trackTimes_ = iEvent.get(trkTimesToken);
       for (unsigned int i = 0; i < (*tks).size(); i++) {
         const reco::TrackRef ref(tks, i);
         auto const trkTimeQuality = trackMTDTimeQualities_[ref];
-        if (trkTimeQuality < minTrackTimeQuality) {
+        if (trkTimeQuality < minTrackTimeQuality_) {
           trackTimes_[ref] = std::numeric_limits<double>::max();
         }
       }
       t_tks = (*theB).build(tks, beamSpot, trackTimes_, *(trackTimeResosH.product()));
     } else {
-      edm::Handle<edm::ValueMap<float> > trackTimesH;
-      iEvent.getByToken(trkTimesToken, trackTimesH);
-      t_tks = (*theB).build(tks, beamSpot, *(trackTimesH.product()), *(trackTimeResosH.product()));
+      t_tks = (*theB).build(tks, beamSpot, iEvent.get(trkTimesToken), *(trackTimeResosH.product()));
     }
   } else {
     t_tks = (*theB).build(tks, beamSpot);

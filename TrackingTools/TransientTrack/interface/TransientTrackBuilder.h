@@ -13,10 +13,6 @@
    * directory.
    */
 
-namespace reco {
-  constexpr float defaultInvalidTrackTimeReso = 0.350f;
-}
-
 class TransientTrackBuilder {
 public:
   TransientTrackBuilder(const MagneticField* field, const edm::ESHandle<GlobalTrackingGeometry>& trackingGeometry)
@@ -73,6 +69,7 @@ public:
 
   const MagneticField* field() const { return theField; }
   const edm::ESHandle<GlobalTrackingGeometry> trackingGeometry() const { return theTrackingGeometry; }
+  static constexpr float defaultInvalidTrackTimeReso = 0.350f;
 
 private:
   const MagneticField* theField;

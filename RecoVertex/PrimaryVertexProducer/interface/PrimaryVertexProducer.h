@@ -103,9 +103,9 @@ private:
   edm::EDGetTokenT<edm::ValueMap<float> > trkTimeResosToken;
   edm::EDGetTokenT<edm::ValueMap<float> > trackMTDTimeQualityToken;
 
-  bool useTransientTrackTime;
-  bool useMVASelection;
+  bool useTransientTrackTime_;
+  bool useMVASelection_;
   edm::ValueMap<float> trackMTDTimeQualities_;
   edm::ValueMap<float> trackTimes_;
-  double minTrackTimeQuality;
+  double minTrackTimeQuality_;
 };

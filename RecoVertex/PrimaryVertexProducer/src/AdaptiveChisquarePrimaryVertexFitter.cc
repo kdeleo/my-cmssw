@@ -199,8 +199,9 @@ bool AdaptiveChisquarePrimaryVertexFitter::clean() {
   double dzmin = 0;
   unsigned int k_dzmin = 0;
   for (unsigned int k = 0; k < nv - 1; k++) {
-    if ((k == 0) || (std::abs(zv_[k + 1] - zv_[k]) < dzmin)) {
-      dzmin = std::abs(zv_[k + 1] - zv_[k]);
+    double dz = std::abs(zv_[k + 1] - zv_[k]);
+    if ((k == 0) || (dz < dzmin)) {
+      dzmin = dz;
       k_dzmin = k;
     }
   }
