@@ -35,27 +35,27 @@ void VertexTimeAlgorithmFromTracksPID::fillPSetDescription(edm::ParameterSetDesc
   VertexTimeAlgorithmBase::fillPSetDescription(iDesc);
 
   iDesc.add<edm::InputTag>("trackMTDTimeVMapTag", edm::InputTag("trackExtenderWithMTD:generalTracktmtd"))
-      ->setComment("");
+      ->setComment("Input ValueMap for track time at MTD");
   iDesc.add<edm::InputTag>("trackMTDTimeErrorVMapTag", edm::InputTag("trackExtenderWithMTD:generalTracksigmatmtd"))
-      ->setComment("");
+      ->setComment("Input ValueMap for track time uncertainty at MTD");
   iDesc.add<edm::InputTag>("trackMTDTimeQualityVMapTag", edm::InputTag("mtdTrackQualityMVA:mtdQualMVA"))
-      ->setComment("");
+      ->setComment("Input ValueMap for track MVA quality value");
   iDesc.add<edm::InputTag>("trackMTDTofPiVMapTag", edm::InputTag("trackExtenderWithMTD:generalTrackTofPi"))
-      ->setComment("");
+      ->setComment("Input ValueMap for track tof as pion");
   iDesc.add<edm::InputTag>("trackMTDTofKVMapTag", edm::InputTag("trackExtenderWithMTD:generalTrackTofK"))
-      ->setComment("");
+      ->setComment("Input ValueMap for track tof as kaon");
   iDesc.add<edm::InputTag>("trackMTDTofPVMapTag", edm::InputTag("trackExtenderWithMTD:generalTrackTofP"))
-      ->setComment("");
+      ->setComment("Input ValueMap for track tof as proton");
 
-  iDesc.add<double>("minTrackVtxWeight", 0.5)->setComment("");
-  iDesc.add<double>("minTrackTimeQuality", 0.8)->setComment("");
+  iDesc.add<double>("minTrackVtxWeight", 0.5)->setComment("Minimum track weight");
+  iDesc.add<double>("minTrackTimeQuality", 0.8)->setComment("Minimum MVA Quality selection on tracks");
 
-  iDesc.add<double>("probPion", 0.7)->setComment("");
-  iDesc.add<double>("probKaon", 0.2)->setComment("");
-  iDesc.add<double>("probProton", 0.1)->setComment("");
+  iDesc.add<double>("probPion", 0.7)->setComment("A priori probability pions");
+  iDesc.add<double>("probKaon", 0.2)->setComment("A priori probability kaons");
+  iDesc.add<double>("probProton", 0.1)->setComment("A priori probability protons");
 
-  iDesc.add<double>("Tstart", 256.)->setComment("");
-  iDesc.add<double>("coolingFactor", 0.5)->setComment("");
+  iDesc.add<double>("Tstart", 256.)->setComment("DA initial temperature T");
+  iDesc.add<double>("coolingFactor", 0.5)->setComment("DA cooling factor");
 }
 
 void VertexTimeAlgorithmFromTracksPID::setEvent(edm::Event& iEvent, edm::EventSetup const&) {

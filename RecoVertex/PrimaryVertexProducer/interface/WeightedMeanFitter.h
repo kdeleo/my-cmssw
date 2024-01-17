@@ -460,7 +460,7 @@ namespace WeightedMeanFitter {
 
 // adapter for the multiprimaryvertexfitter scheme
 // this code was originally introduced as part of PrimaryVertexProducer.cc
-// by Adriano Dee et.al., then moved here with minor modifications
+// by Adriano Di Florio <AdrianoDee>, Giorgio Pizzati <giorgiopizz> et.al. in #39995, then moved here with minor modifications
 class WeightedMeanPrimaryVertexEstimator : public PrimaryVertexFitterBase {
 public:
   WeightedMeanPrimaryVertexEstimator() = default;

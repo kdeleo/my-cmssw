@@ -258,19 +258,19 @@ double AdaptiveChisquarePrimaryVertexFitter::update(const reco::BeamSpot &beamsp
 
   // initial value for S, 0 or inverse of the beamspot covariance matrix
   Error3 S0;
-  double c0 = 0, c1 = 0, c2 = 0;
+  double c_beam[3] = {0, 0, 0};
   if (beam_weight > 0) {
     S0 = get_inverse_beam_covariance(beamspot);
-    c0 = -(S0(0, 0) * beamspot.x0() + S0(0, 1) * beamspot.y0() + S0(0, 2) * beamspot.z0());
-    c1 = -(S0(1, 0) * beamspot.x0() + S0(1, 1) * beamspot.y0() + S0(1, 2) * beamspot.z0());
-    c2 = -(S0(2, 0) * beamspot.x0() + S0(2, 1) * beamspot.y0() + S0(2, 2) * beamspot.z0());
+    for (unsigned int j = 0; j < 3; j++) {
+      c_beam[j] = -(S0(j, 0) * beamspot.x0() + S0(j, 1) * beamspot.y0() + S0(j, 2) * beamspot.z0());
+    }
   }
 
   for (unsigned int k = 0; k < nv; k++) {
     rho_vtx = 0;
     Error3 S(S0);
     // sum track contributions
-    double c[3] = {c0, c1, c2};
+    double c[3] = {c_beam[0], c_beam[1], c_beam[2]};
     for (unsigned int j = tkfirstv_[k]; j < tkfirstv_[k + 1]; j++) {
       const unsigned int i = tkmap_[j];
       const auto w = tkweight_[j];

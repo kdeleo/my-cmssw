@@ -205,13 +205,12 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
   std::vector<reco::TransientTrack> t_tks;
 
   if (useTransientTrackTime_) {
-    edm::Handle<edm::ValueMap<float> > trackTimeResosH;
-    iEvent.getByToken(trkTimeResosToken, trackTimeResosH);
+    auto const& trackTimeResos_ = iEvent.get(trkTimeResosToken);
+    auto trackTimes_ = iEvent.get(trkTimesToken);
 
     if (useMVASelection_) {
       trackMTDTimeQualities_ = iEvent.get(trackMTDTimeQualityToken);
 
-      trackTimes_ = iEvent.get(trkTimesToken);
       for (unsigned int i = 0; i < (*tks).size(); i++) {
         const reco::TrackRef ref(tks, i);
         auto const trkTimeQuality = trackMTDTimeQualities_[ref];
@@ -219,9 +218,9 @@ void PrimaryVertexProducer::produce(edm::Event& iEvent, const edm::EventSetup& i
           trackTimes_[ref] = std::numeric_limits<double>::max();
         }
       }
-      t_tks = (*theB).build(tks, beamSpot, trackTimes_, *(trackTimeResosH.product()));
+      t_tks = (*theB).build(tks, beamSpot, trackTimes_, trackTimeResos_);
     } else {
-      t_tks = (*theB).build(tks, beamSpot, iEvent.get(trkTimesToken), *(trackTimeResosH.product()));
+      t_tks = (*theB).build(tks, beamSpot, trackTimes_, trackTimeResos_);
     }
   } else {
     t_tks = (*theB).build(tks, beamSpot);
