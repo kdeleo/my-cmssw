@@ -14,4 +14,5 @@ def customise(process):
     process.vertices4DValid.probPi = 'tofPID3D:probPi'
     process.vertices4DValid.probK = 'tofPID3D:probK'
     process.vertices4DValid.probP = 'tofPID3D:probP'  
+    process.vertices4DValid.histName = 'file.root'  
     return(process)

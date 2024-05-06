@@ -4,6 +4,11 @@
 #include <map>
 #include <algorithm>
 
+#include "TTree.h"
+#include "TFile.h"
+#include "FWCore/ServiceRegistry/interface/Service.h"
+#include "CommonTools/UtilAlgos/interface/TFileService.h"
+
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/ESHandle.h"
 
@@ -49,6 +54,10 @@
 #include "DataFormats/Math/interface/deltaR.h"
 #include "DataFormats/Math/interface/GeantUnits.h"
 #include "CLHEP/Units/PhysicalConstants.h"
+
+#include "TrackingTools/TransientTrack/interface/TransientTrack.h"
+#include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
+#include "TrackingTools/Records/interface/TransientTrackRecord.h"
 
 //class declaration
 class Primary4DVertexValidation : public DQMEDAnalyzer {
@@ -199,6 +208,7 @@ private:
                      const edm::Handle<reco::BeamSpot>&);
   bool matchRecoTrack2SimSignal(const reco::TrackBaseRef&);
   const edm::Ref<std::vector<TrackingParticle>>* getMatchedTP(const reco::TrackBaseRef&, const TrackingVertexRef&);
+  const edm::Ref<std::vector<TrackingParticle>>* getAnyMatchedTP(const reco::TrackBaseRef&);
   double timeFromTrueMass(double, double, double, double);
   bool select(const reco::Vertex&, int level = 0);
   std::vector<Primary4DVertexValidation::simPrimaryVertex> getSimPVs(const edm::Handle<TrackingVertexCollection>&);
@@ -207,7 +217,14 @@ private:
   const bool mvaTPSel(const TrackingParticle&);
   const bool mvaRecSel(const reco::TrackBase&, const reco::Vertex&, const double&, const double&);
 
+  bool passTrackFilter(const reco::TransientTrack&);
+
+  edm::Service<TFileService> fs_;
+  std::map<unsigned int, TTree*> eventTrees_;
+
   // ----------member data ---------------------------
+
+  const edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> theTTBToken;
 
   const std::string folder_;
   static constexpr unsigned int NOT_MATCHED = 66666;
@@ -233,6 +250,7 @@ private:
   bool use_only_charged_tracks_;
   bool debug_;
   bool optionalPlots_;
+  std::string histName_;
 
   const double minProbHeavy_;
   const double trackweightTh_;
@@ -240,6 +258,52 @@ private:
   const std::vector<double> lineDensityPar_;
   const reco::RecoToSimCollection* r2s_;
   const reco::SimToRecoCollection* s2r_;
+ 
+  float maxD0Sig_;
+  float maxD0Error_;
+  float maxDzError_;
+  float minPt_;
+  float maxEta_;
+  float maxNormChi2_;
+  int minSiLayers_;
+  int minPxLayers_;
+
+  // gnn input variables
+  double gnn_weight;
+  double gnn_pt;
+  double gnn_eta;
+  double gnn_phi;
+  double gnn_z_pca;
+  double gnn_dz;
+  double gnn_t_pi;
+  double gnn_t_k;
+  double gnn_t_p;
+  double gnn_sigma_t0safe;
+  double gnn_t0safe;
+  double gnn_t0pid;
+  double gnn_mva_qual;
+  double gnn_btlMatchChi2;
+  double gnn_btlMatchTimeChi2;
+  double gnn_etlMatchChi2;
+  double gnn_etlMatchTimeChi2;
+  double gnn_pathLength;
+  int gnn_npixBarrel;
+  int gnn_npixEndcap;
+  double gnn_mtdTime;
+  int gnn_is_matched_tp;
+  int gnn_reco_vertex_ID;
+  int gnn_reco_vertex_t;
+  int gnn_reco_vertex_dt;
+  int gnn_reco_vertex_z;
+  int gnn_sim_vertex_ID;
+  int gnn_sim_vertex_z;
+  int gnn_sim_vertex_t;
+  double gnn_tp_tsim;
+  double gnn_tp_tEst;
+  int gnn_tp_pdgId;
+  double gnn_probPi;
+  double gnn_probK;
+  double gnn_probP;
 
   edm::EDGetTokenT<reco::TrackCollection> RecTrackToken_;
 
@@ -269,6 +333,13 @@ private:
   edm::EDGetTokenT<edm::ValueMap<float>> probPiToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probKToken_;
   edm::EDGetTokenT<edm::ValueMap<float>> probPToken_;
+
+  edm::EDGetTokenT<edm::ValueMap<float>> btlMatchChi2Token_;
+  edm::EDGetTokenT<edm::ValueMap<float>> btlMatchTimeChi2Token_;
+  edm::EDGetTokenT<edm::ValueMap<float>> etlMatchChi2Token_;
+  edm::EDGetTokenT<edm::ValueMap<float>> etlMatchTimeChi2Token_;
+  edm::EDGetTokenT<edm::ValueMap<int>> npixBarrelToken_;
+  edm::EDGetTokenT<edm::ValueMap<int>> npixEndcapToken_;
 
   //histogram declaration
   MonitorElement* meMVATrackEffPtTot_;
@@ -367,14 +438,59 @@ private:
 
 // constructors and destructor
 Primary4DVertexValidation::Primary4DVertexValidation(const edm::ParameterSet& iConfig)
-    : folder_(iConfig.getParameter<std::string>("folder")),
+    : theTTBToken(esConsumes(edm::ESInputTag("", "TransientTrackBuilder"))),
+      folder_(iConfig.getParameter<std::string>("folder")),
       use_only_charged_tracks_(iConfig.getParameter<bool>("useOnlyChargedTracks")),
       debug_(iConfig.getUntrackedParameter<bool>("debug")),
       optionalPlots_(iConfig.getUntrackedParameter<bool>("optionalPlots")),
+      histName_(iConfig.getUntrackedParameter<std::string>("histName")),
       minProbHeavy_(iConfig.getParameter<double>("minProbHeavy")),
       trackweightTh_(iConfig.getParameter<double>("trackweightTh")),
       mvaTh_(iConfig.getParameter<double>("mvaTh")),
-      lineDensityPar_(iConfig.getParameter<std::vector<double>>("lineDensityPar")) {
+      lineDensityPar_(iConfig.getParameter<std::vector<double>>("lineDensityPar")),
+      maxD0Sig_(iConfig.getParameter<double>("maxD0Significance")),
+      maxD0Error_(iConfig.getParameter<double>("maxD0Error")),
+      maxDzError_(iConfig.getParameter<double>("maxDzError")),
+      minPt_(iConfig.getParameter<double>("minPt")),
+      maxEta_(iConfig.getParameter<double>("maxEta")),
+      maxNormChi2_(iConfig.getParameter<double>("maxNormalizedChi2")),
+      minSiLayers_(iConfig.getParameter<int>("minSiliconLayersWithHits")),
+      minPxLayers_(iConfig.getParameter<int>("minPixelLayersWithHits")),
+      gnn_weight(-1.),
+      gnn_pt(-1.),
+      gnn_eta(-10.),
+      gnn_phi(-10.),
+      gnn_z_pca(-100.),
+      gnn_dz(-100.),
+      gnn_t_pi(-100.),
+      gnn_t_k(-100.),
+      gnn_t_p(-100.),
+      gnn_sigma_t0safe(-1.),
+      gnn_t0safe(-100.),
+      gnn_t0pid(-100.),
+      gnn_mva_qual(-1.),
+      gnn_btlMatchChi2(-1.),
+      gnn_btlMatchTimeChi2(-1.),
+      gnn_etlMatchChi2(-1.),
+      gnn_etlMatchTimeChi2(-1.),
+      gnn_pathLength(-1.),
+      gnn_npixBarrel(-1),
+      gnn_npixEndcap(-1),
+      gnn_mtdTime(-100.),
+      gnn_is_matched_tp(-1),
+      gnn_reco_vertex_ID(-1),
+      gnn_reco_vertex_t(-100.),
+      gnn_reco_vertex_dt(-10.),
+      gnn_reco_vertex_z(-10.),
+      gnn_sim_vertex_ID(-1),
+      gnn_sim_vertex_z(-10.),
+      gnn_sim_vertex_t(-100.),
+      gnn_tp_tsim(-100.),
+      gnn_tp_tEst(-100.),
+      gnn_tp_pdgId(-1),
+      gnn_probPi(-1.),
+      gnn_probK(-1.),
+      gnn_probP(-1.) {
   vecPileupSummaryInfoToken_ = consumes<std::vector<PileupSummaryInfo>>(edm::InputTag(std::string("addPileupInfo")));
   trackingParticleCollectionToken_ =
       consumes<TrackingParticleCollection>(iConfig.getParameter<edm::InputTag>("SimTag"));
@@ -383,7 +499,7 @@ Primary4DVertexValidation::Primary4DVertexValidation(const edm::ParameterSet& iC
       consumes<reco::SimToRecoCollection>(iConfig.getParameter<edm::InputTag>("TPtoRecoTrackAssoc"));
   recoToSimAssociationToken_ =
       consumes<reco::RecoToSimCollection>(iConfig.getParameter<edm::InputTag>("TPtoRecoTrackAssoc"));
-  RecTrackToken_ = consumes<reco::TrackCollection>(iConfig.getParameter<edm::InputTag>("mtdTracks"));
+  RecTrackToken_ = consumes<reco::TrackCollection>(iConfig.getParameter<edm::InputTag>("inputTracks"));
   RecBeamSpotToken_ = consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("offlineBS"));
   Rec4DVerToken_ = consumes<edm::View<reco::Vertex>>(iConfig.getParameter<edm::InputTag>("offline4DPV"));
   trackAssocToken_ = consumes<edm::ValueMap<int>>(iConfig.getParameter<edm::InputTag>("trackAssocSrc"));
@@ -401,6 +517,14 @@ Primary4DVertexValidation::Primary4DVertexValidation(const edm::ParameterSet& iC
   probPiToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probPi"));
   probKToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probK"));
   probPToken_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("probP"));
+
+  btlMatchChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("btlMatchChi2Src"));
+  btlMatchTimeChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("btlMatchTimeChi2Src"));
+  etlMatchChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("etlMatchChi2Src"));
+  etlMatchTimeChi2Token_ = consumes<edm::ValueMap<float>>(iConfig.getParameter<edm::InputTag>("etlMatchTimeChi2Src"));
+  npixBarrelToken_ = consumes<edm::ValueMap<int>>(iConfig.getParameter<edm::InputTag>("npixBarrelSrc"));
+  npixEndcapToken_ = consumes<edm::ValueMap<int>>(iConfig.getParameter<edm::InputTag>("npixEndcapSrc"));
+
 }
 
 Primary4DVertexValidation::~Primary4DVertexValidation() {}
@@ -778,6 +902,23 @@ const edm::Ref<std::vector<TrackingParticle>>* Primary4DVertexValidation::getMat
   return nullptr;
 }
 
+const edm::Ref<std::vector<TrackingParticle>>* Primary4DVertexValidation::getAnyMatchedTP(
+    const reco::TrackBaseRef& recoTrack) {
+  auto found = r2s_->find(recoTrack);
+
+  // reco track not matched to any TP
+  if (found == r2s_->end())
+    return nullptr;
+
+  //matched TP equal to any TP
+  for (const auto& tp : found->val) {
+    return &tp.first;
+ } 
+
+  // reco track not matched to any TP from vertex
+  return nullptr;
+}
+
 double Primary4DVertexValidation::timeFromTrueMass(double mass, double pathlength, double momentum, double time) {
   if (time > 0 && pathlength > 0 && mass > 0) {
     double gammasq = 1. + momentum * momentum / (mass * mass);
@@ -976,6 +1117,24 @@ std::vector<Primary4DVertexValidation::recoPrimaryVertex> Primary4DVertexValidat
   return recopv;
 }
 
+bool Primary4DVertexValidation::passTrackFilter(const reco::TransientTrack& tk) {
+
+  if (!tk.stateAtBeamLine().isValid())
+    return false;
+  bool IPSigCut = (tk.stateAtBeamLine().transverseImpactParameter().significance() < maxD0Sig_) &&
+                  (tk.stateAtBeamLine().transverseImpactParameter().error() < maxD0Error_) &&
+                  (tk.track().dzError() < maxDzError_);
+  bool pTCut = tk.impactPointState().globalMomentum().transverse() > minPt_;
+  bool etaCut = std::fabs(tk.impactPointState().globalMomentum().eta()) < maxEta_;
+  bool normChi2Cut = tk.normalizedChi2() < maxNormChi2_;
+  bool nPxLayCut = tk.hitPattern().pixelLayersWithMeasurement() >= minPxLayers_;
+  bool nSiLayCut = tk.hitPattern().trackerLayersWithMeasurement() >= minSiLayers_;
+
+  return IPSigCut && pTCut && etaCut && normChi2Cut && nPxLayCut && nSiLayCut; 
+
+}
+
+
 // ------------ method called to produce the data  ------------
 void Primary4DVertexValidation::matchReco2Sim(std::vector<recoPrimaryVertex>& recopv,
                                               std::vector<simPrimaryVertex>& simpv,
@@ -1156,6 +1315,7 @@ void Primary4DVertexValidation::matchReco2Sim(std::vector<recoPrimaryVertex>& re
   }  // ntry
 }
 
+
 void Primary4DVertexValidation::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using edm::Handle;
   using edm::View;
@@ -1163,6 +1323,44 @@ void Primary4DVertexValidation::analyze(const edm::Event& iEvent, const edm::Eve
   using std::endl;
   using std::vector;
   using namespace reco;
+
+  std::string treeName = "tree_" + std::to_string(iEvent.id().event());
+  TTree* tree = fs_->make<TTree>(treeName.c_str(), "Tree for tracks");
+  tree->Branch("gnn_weight", &gnn_weight, "gnn_weight/D");
+  tree->Branch("gnn_pt", &gnn_pt, "gnn_pt/D");
+  tree->Branch("gnn_eta", &gnn_eta, "gnn_eta/D");
+  tree->Branch("gnn_phi", &gnn_phi, "gnn_phi/D");
+  tree->Branch("gnn_z_pca", &gnn_z_pca, "gnn_z_pca/D");
+  tree->Branch("gnn_dz", &gnn_dz, "gnn_dz/D");
+  tree->Branch("gnn_t_pi", &gnn_t_pi, "gnn_t_pi/D");
+  tree->Branch("gnn_t_k", &gnn_t_k, "gnn_t_k/D");
+  tree->Branch("gnn_t_p", &gnn_t_p, "gnn_t_p/D");
+  tree->Branch("gnn_sigma_t0safe", &gnn_sigma_t0safe, "gnn_sigma_t0safe/D");
+  tree->Branch("gnn_t0safe", &gnn_t0safe, "gnn_t0safe/D");
+  tree->Branch("gnn_t0pid", &gnn_t0pid, "gnn_t0pid/D");
+  tree->Branch("gnn_mva_qual", &gnn_mva_qual, "gnn_mva_qual/D");
+  tree->Branch("gnn_btlMatchChi2", &gnn_btlMatchChi2, "gnn_btlMatchChi2/D");
+  tree->Branch("gnn_btlMatchTimeChi2", &gnn_btlMatchTimeChi2, "gnn_btlMatchTimeChi2/D");
+  tree->Branch("gnn_etlMatchChi2", &gnn_etlMatchChi2, "gnn_etlMatchChi2/D");
+  tree->Branch("gnn_etlMatchTimeChi2", &gnn_etlMatchTimeChi2, "gnn_etlMatchTimeChi2/D");
+  tree->Branch("gnn_pathLength", &gnn_pathLength, "gnn_pathLength/D");
+  tree->Branch("gnn_npixBarrel", &gnn_npixBarrel, "gnn_npixBarrel/I");
+  tree->Branch("gnn_npixEndcap", &gnn_npixEndcap, "gnn_npixEndcap/I");
+  tree->Branch("gnn_mtdTime", &gnn_mtdTime, "gnn_mtdTime/D");
+  tree->Branch("gnn_is_matched_tp", &gnn_is_matched_tp, "gnn_is_matched_tp/I");
+  tree->Branch("gnn_reco_vertex_ID", &gnn_reco_vertex_ID, "gnn_reco_vertex_ID/I");
+  tree->Branch("gnn_reco_vertex_t", &gnn_reco_vertex_t, "gnn_reco_vertex_t/D");
+  tree->Branch("gnn_reco_vertex_dt", &gnn_reco_vertex_dt, "gnn_reco_vertex_dt/D");
+  tree->Branch("gnn_reco_vertex_z", &gnn_reco_vertex_z, "gnn_reco_vertex_z/D");
+  tree->Branch("gnn_sim_vertex_ID", &gnn_sim_vertex_ID, "gnn_sim_vertex_ID/I");
+  tree->Branch("gnn_sim_vertex_z", &gnn_sim_vertex_z, "gnn_sim_vertex_z/D");
+  tree->Branch("gnn_sim_vertex_t", &gnn_sim_vertex_t, "gnn_sim_vertex_t/D");
+  tree->Branch("gnn_tp_tsim", &gnn_tp_tsim, "gnn_tp_tsim/D");
+  tree->Branch("gnn_tp_tEst", &gnn_tp_tEst, "gnn_tp_tEst/D");
+  tree->Branch("gnn_tp_pdgId", &gnn_tp_pdgId, "gnn_tp_pdgId/I");
+  tree->Branch("gnn_probPi", &gnn_probPi, "gnn_probPi/D");
+  tree->Branch("gnn_probK", &gnn_probK, "gnn_probK/D");
+  tree->Branch("gnn_probP", &gnn_probP, "gnn_probP/D");
 
   std::vector<float> pileUpInfo_z;
 
@@ -1176,6 +1374,12 @@ void Primary4DVertexValidation::analyze(const edm::Event& iEvent, const edm::Eve
       }
     }
   }
+
+  edm::Handle<reco::TrackCollection> tracksH;
+  iEvent.getByToken(RecTrackToken_, tracksH);
+
+  const auto& theB = &iSetup.getData(theTTBToken);
+  std::vector<reco::TransientTrack> t_tks;
 
   edm::Handle<TrackingParticleCollection> TPCollectionH;
   iEvent.getByToken(trackingParticleCollectionToken_, TPCollectionH);
@@ -1201,10 +1405,13 @@ void Primary4DVertexValidation::analyze(const edm::Event& iEvent, const edm::Eve
   else
     edm::LogWarning("Primary4DVertexValidation") << "recoToSimH is not valid";
 
+  reco::BeamSpot beamSpot;
   edm::Handle<reco::BeamSpot> BeamSpotH;
   iEvent.getByToken(RecBeamSpotToken_, BeamSpotH);
   if (!BeamSpotH.isValid())
     edm::LogWarning("Primary4DVertexValidation") << "BeamSpotH is not valid";
+  beamSpot = *BeamSpotH;
+
 
   std::vector<simPrimaryVertex> simpv;  // a list of simulated primary MC vertices
   simpv = getSimPVs(TVCollectionH);
@@ -1237,8 +1444,92 @@ void Primary4DVertexValidation::analyze(const edm::Event& iEvent, const edm::Eve
   const auto& probK = iEvent.get(probKToken_);
   const auto& probP = iEvent.get(probPToken_);
 
+  const auto& btlMatchChi2 = iEvent.get(btlMatchChi2Token_);
+  const auto& btlMatchTimeChi2 = iEvent.get(btlMatchTimeChi2Token_);
+  const auto& etlMatchChi2 = iEvent.get(etlMatchChi2Token_);
+  const auto& etlMatchTimeChi2 = iEvent.get(etlMatchTimeChi2Token_);
+  const auto& npixBarrel = iEvent.get(npixBarrelToken_);
+  const auto& npixEndcap = iEvent.get(npixEndcapToken_);
+
   //I have simPV and recoPV collections
   matchReco2Sim(recopv, simpv, sigmat0Safe, mtdQualMVA, BeamSpotH);
+
+  // build TransientTracks, needed for TrackFilter
+  t_tks = (*theB).build(tracksH, beamSpot, t0Safe, sigmat0Safe);
+
+  // Fill TTree with input variables for GNN
+  for (std::vector<reco::TransientTrack>::const_iterator itk = t_tks.begin(); itk != t_tks.end(); itk++) {
+    if (passTrackFilter(*itk)){
+      reco::TrackBaseRef trackref = (*itk).trackBaseRef();
+      
+      gnn_pt = (*itk).track().pt();
+      gnn_eta = (*itk).track().eta();
+      gnn_phi = (*itk).track().phi();
+      gnn_z_pca = (*itk).track().vz();
+      gnn_dz = (*itk).track().dzError();
+      gnn_t_pi = tMtd[trackref] - tofPi[trackref];
+      gnn_t_k = tMtd[trackref] - tofK[trackref];
+      gnn_t_p = tMtd[trackref] - tofP[trackref];
+      gnn_sigma_t0safe = sigmat0Safe[trackref];
+      gnn_t0safe = t0Safe[trackref];
+      gnn_t0pid = t0Pid[trackref];
+      gnn_mva_qual = mtdQualMVA[trackref];
+      gnn_btlMatchChi2 = btlMatchChi2[trackref];
+      gnn_btlMatchTimeChi2 = btlMatchTimeChi2[trackref];
+      gnn_etlMatchChi2 = etlMatchChi2[trackref];
+      gnn_etlMatchTimeChi2 = etlMatchTimeChi2[trackref];
+      gnn_pathLength = pathLength[trackref];
+      gnn_npixBarrel = npixBarrel[trackref];
+      gnn_npixEndcap = npixEndcap[trackref];
+      gnn_mtdTime = tMtd[trackref];
+      gnn_probPi = probPi[trackref];
+      gnn_probK = probK[trackref];
+      gnn_probP = probP[trackref];
+
+      auto anytp_info = getAnyMatchedTP(trackref);
+      if (anytp_info != nullptr) {
+         gnn_is_matched_tp = 1;
+         double anytp_mass = (*anytp_info)->mass();
+         gnn_tp_tsim = (*anytp_info)->parentVertex()->position().t() * simUnit_;;
+         gnn_tp_tEst = timeFromTrueMass(anytp_mass, pathLength[trackref], momentum[trackref], time[trackref]);
+         gnn_tp_pdgId = std::abs((*anytp_info)->pdgId());
+      }else{
+         gnn_is_matched_tp = 0;
+      }
+
+      //find associated vertex
+      unsigned int vtxidx = 1000;
+      float bestweight = 0.;
+      for (unsigned int ivtx = 0; ivtx < recopv.size(); ivtx++) {
+        const reco::Vertex* vtx = recopv.at(ivtx).recVtx;
+        float w = vtx->trackWeight(trackref);
+        if(w > bestweight) {
+          bestweight = w;
+          vtxidx = ivtx;        
+        }
+      }
+
+      if(vtxidx < 1000){
+        gnn_weight = bestweight;
+        gnn_reco_vertex_ID = recopv.at(vtxidx).OriginalIndex;
+        gnn_reco_vertex_t = recopv.at(vtxidx).recVtx->t();
+        gnn_reco_vertex_dt = recopv.at(vtxidx).recVtx->tError();
+        gnn_reco_vertex_z = recopv.at(vtxidx).recVtx->z();
+
+        for (unsigned int iev = 0; iev < simpv.size(); iev++) {
+          auto vsim = simpv.at(iev).sim_vertex;
+          auto tp_info = getMatchedTP(trackref, vsim);
+          if (tp_info != nullptr) {
+             gnn_sim_vertex_ID = simpv.at(iev).OriginalIndex;
+             gnn_sim_vertex_z = simpv.at(iev).z;
+             gnn_sim_vertex_t = simpv.at(iev).t * simUnit_;
+          }
+        }
+      }
+
+      tree->Fill();
+    }
+  }
 
   //Loop on tracks
   for (unsigned int iv = 0; iv < recopv.size(); iv++) {
@@ -1712,6 +2003,7 @@ void Primary4DVertexValidation::analyze(const edm::Event& iEvent, const edm::Eve
     }  //ndof
   }
 
+eventTrees_[iEvent.id().event()] = tree;
 }  // end of analyze
 
 void Primary4DVertexValidation::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -1719,7 +2011,7 @@ void Primary4DVertexValidation::fillDescriptions(edm::ConfigurationDescriptions&
 
   desc.add<std::string>("folder", "MTD/Vertices");
   desc.add<edm::InputTag>("TPtoRecoTrackAssoc", edm::InputTag("trackingParticleRecoTrackAsssociation"));
-  desc.add<edm::InputTag>("mtdTracks", edm::InputTag("trackExtenderWithMTD"));
+  desc.add<edm::InputTag>("inputTracks", edm::InputTag("generalTracks"));
   desc.add<edm::InputTag>("SimTag", edm::InputTag("mix", "MergedTrackTruth"));
   desc.add<edm::InputTag>("offlineBS", edm::InputTag("offlineBeamSpot"));
   desc.add<edm::InputTag>("offline4DPV", edm::InputTag("offlinePrimaryVertices4D"));
@@ -1740,12 +2032,27 @@ void Primary4DVertexValidation::fillDescriptions(edm::ConfigurationDescriptions&
   desc.add<edm::InputTag>("probPi", edm::InputTag("tofPID:probPi"));
   desc.add<edm::InputTag>("probK", edm::InputTag("tofPID:probK"));
   desc.add<edm::InputTag>("probP", edm::InputTag("tofPID:probP"));
+  desc.add<edm::InputTag>("btlMatchChi2Src", edm::InputTag("trackExtenderWithMTD", "btlMatchChi2"));
+  desc.add<edm::InputTag>("btlMatchTimeChi2Src", edm::InputTag("trackExtenderWithMTD", "btlMatchTimeChi2"));
+  desc.add<edm::InputTag>("etlMatchChi2Src", edm::InputTag("trackExtenderWithMTD", "etlMatchChi2"));
+  desc.add<edm::InputTag>("etlMatchTimeChi2Src", edm::InputTag("trackExtenderWithMTD", "etlMatchTimeChi2"));
+  desc.add<edm::InputTag>("npixBarrelSrc", edm::InputTag("trackExtenderWithMTD", "npixBarrel"));
+  desc.add<edm::InputTag>("npixEndcapSrc", edm::InputTag("trackExtenderWithMTD", "npixEndcap"));
   desc.add<bool>("useOnlyChargedTracks", true);
   desc.addUntracked<bool>("debug", false);
   desc.addUntracked<bool>("optionalPlots", false);
+  desc.addUntracked<std::string>("histName","file.root");
   desc.add<double>("trackweightTh", 0.5);
   desc.add<double>("mvaTh", 0.01);
   desc.add<double>("minProbHeavy", 0.75);
+  desc.add<double>("maxD0Significance", 4.0);
+  desc.add<double>("maxD0Error", 1.0);
+  desc.add<double>("maxDzError", 1.0);
+  desc.add<double>("minPt", 0.0);
+  desc.add<double>("maxEta", 2.4);
+  desc.add<double>("maxNormalizedChi2", 10.0);
+  desc.add<int>("minSiliconLayersWithHits", 5);
+  desc.add<int>("minPixelLayersWithHits", 2);
 
   //lineDensity parameters have been obtained by fitting the distribution of the z position of the vertices,
   //using a 200k single mu ptGun sample (gaussian fit)
