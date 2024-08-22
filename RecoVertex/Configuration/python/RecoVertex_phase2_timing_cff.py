@@ -14,8 +14,8 @@ unsortedOfflinePrimaryVertices4D = unsortedOfflinePrimaryVertices.clone(
     trackMTDTimeQualityVMapTag = cms.InputTag("mtdTrackQualityMVA:mtdQualMVA"),
     useMVACut = cms.bool(False),
     minTrackTimeQuality = cms.double(0.8),
-    vertexCollections = {0: dict(vertexTimeParameters = cms.PSet( algorithm = cms.string('fromTracksPID'))),
-                         1: dict(vertexTimeParameters = cms.PSet( algorithm = cms.string('fromTracksPID')))}
+    vertexCollections = {0: dict(vertexTimeParameters = cms.PSet( algorithm = cms.string('legacy4D'))),
+                         1: dict(vertexTimeParameters = cms.PSet( algorithm = cms.string('legacy4D')))}
     )
 trackWithVertexRefSelectorBeforeSorting4D = trackWithVertexRefSelector.clone(
     vertexTag = "unsortedOfflinePrimaryVertices4D",
@@ -34,6 +34,29 @@ offlinePrimaryVertices4D = sortedPrimaryVertices.clone(
 )
 offlinePrimaryVertices4DWithBS = offlinePrimaryVertices4D.clone(
     vertices = "unsortedOfflinePrimaryVertices4D:WithBS"
+)
+
+
+unsortedOfflinePrimaryVertices4DnoPID = unsortedOfflinePrimaryVertices4D.clone(
+    TrackTimesLabel = "trackExtenderWithMTD:generalTrackt0",
+    TrackTimeResosLabel = "trackExtenderWithMTD:generalTracksigmat0"
+)
+trackWithVertexRefSelectorBeforeSorting4DnoPID = trackWithVertexRefSelector.clone(
+    vertexTag = "unsortedOfflinePrimaryVertices4DnoPID",
+    ptMax = 9e99,
+    ptErrorCut = 9e99
+)
+trackRefsForJetsBeforeSorting4DnoPID = trackRefsForJets.clone(
+    src = "trackWithVertexRefSelectorBeforeSorting4DnoPID"
+)
+offlinePrimaryVertices4DnoPID = offlinePrimaryVertices4D.clone(
+    vertices = "unsortedOfflinePrimaryVertices4DnoPID",
+    particles = "trackRefsForJetsBeforeSorting4DnoPID",
+    trackTimeTag = "trackExtenderWithMTD:generalTrackt0",
+    trackTimeResoTag = "trackExtenderWithMTD:generalTracksigmat0"
+)
+offlinePrimaryVertices4DnoPIDWithBS=offlinePrimaryVertices4DnoPID.clone(
+    vertices = "unsortedOfflinePrimaryVertices4DnoPID:WithBS"
 )
 
 unsortedOfflinePrimaryVertices4DwithPID = unsortedOfflinePrimaryVertices4D.clone(
@@ -63,10 +86,8 @@ from SimTracker.TrackAssociatorProducers.quickTrackAssociatorByHits_cfi import q
 from SimTracker.TrackAssociation.trackTimeValueMapProducer_cfi import trackTimeValueMapProducer
 from RecoMTD.TimingIDTools.tofPIDProducer_cfi import tofPIDProducer
 
-tofPID4DnoPID=tofPIDProducer.clone(vtxsSrc='unsortedOfflinePrimaryVertices')
+tofPID4DnoPID=tofPIDProducer.clone(vtxsSrc='unsortedOfflinePrimaryVertices4DnoPID')
 tofPID=tofPIDProducer.clone()
-tofPID3D=tofPIDProducer.clone(vtxsSrc='unsortedOfflinePrimaryVertices')
 
 from Configuration.Eras.Modifier_phase2_timing_layer_cff import phase2_timing_layer
 phase2_timing_layer.toModify(tofPID, vtxsSrc='unsortedOfflinePrimaryVertices4D', vertexReassignment=False)
-phase2_timing_layer.toModify(tofPID3D, vertexReassignment=False)
